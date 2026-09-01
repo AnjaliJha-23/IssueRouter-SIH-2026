@@ -51,8 +51,11 @@ export default function Sidebar({ darkMode, toggleDarkMode, isOpen, onClose }) {
             >
                 {/* ── Logo ─────────────────────────────────── */}
                 <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
-                    <div className="flex items-center">
+                    <div className="flex flex-col items-center flex-1">
                         <img src={IssueRouterLogo} alt="IssueRouter Logo" className="h-12 w-auto object-contain rounded-lg" />
+                        <span className="mt-1.5 text-[10px] font-medium tracking-[0.24em] text-white/45 text-center">
+                            Noise to Action
+                        </span>
                     </div>
 
                     {/* Close button — visible on mobile only */}
