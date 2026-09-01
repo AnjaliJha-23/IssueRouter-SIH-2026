@@ -88,7 +88,7 @@ git add <specific files, not blanket `git add .` unless the human confirms every
 git commit -m "<type>(<module>): <what changed, imperative mood>"
 ```
 
-Commit message format (matches `CONTRIBUTING.md`):
+Commit message format (matches `docs/CONTRIBUTING.md`):
 
 ```
 feat(nlp-pipeline): retag BART classifier to 10 thematic domains
