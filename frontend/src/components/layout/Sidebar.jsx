@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import IssueRouterLogo from '../../assets/issuerouter-logo.svg'
+import { useAuth } from '../../context/AuthContext'
 import {
     LayoutDashboard,
     BarChart2,
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react'
 
 const mainNav = [
-    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { label: 'Dashboard', path: '/dashboard/gov', icon: LayoutDashboard },
     { label: 'Analytics', path: '/analytics', icon: BarChart2, badge: 'New' },
     { label: 'Maps', path: '/maps', icon: Map },
     { label: 'Progress', path: '/progress', icon: TrendingUp },
@@ -29,6 +30,17 @@ const accountNav = [
 ]
 
 export default function Sidebar({ darkMode, toggleDarkMode, isOpen, onClose }) {
+    const { user, logout } = useAuth()
+    const navigate = useNavigate()
+
+    const handleLogout = () => {
+        logout()
+        navigate('/login')
+    }
+
+    // Determine initials
+    const initials = user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U'
+
     return (
         <>
             {/* Mobile overlay — clicking it closes the sidebar */}
@@ -54,7 +66,7 @@ export default function Sidebar({ darkMode, toggleDarkMode, isOpen, onClose }) {
                     <div className="flex flex-col items-center flex-1">
                         <img src={IssueRouterLogo} alt="IssueRouter Logo" className="h-12 w-auto object-contain rounded-lg" />
                         <span className="mt-1.5 text-[10px] font-medium tracking-[0.24em] text-white/45 text-center">
-                            Noise to Action
+                            Innovation Portal
                         </span>
                     </div>
 
@@ -147,17 +159,17 @@ export default function Sidebar({ darkMode, toggleDarkMode, isOpen, onClose }) {
                     {/* User profile row */}
                     <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-white/10 cursor-pointer transition-colors">
                         <div className="w-7 h-7 rounded-full bg-indigo-500 border-2 border-white/25 flex items-center justify-center text-[11px] font-medium flex-shrink-0">
-                            AK
+                            {initials}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-medium text-white truncate">Arjun Kumar</p>
-                            <p className="text-[10px] text-white/45">Super Admin</p>
+                            <p className="text-[12px] font-medium text-white truncate">{user?.name || 'User'}</p>
+                            <p className="text-[10px] text-white/45">{user?.role || 'Guest'}</p>
                         </div>
                         <ChevronRight size={13} className="text-white/30 flex-shrink-0" />
                     </div>
 
                     {/* Logout */}
-                    <button className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-red-300 hover:bg-red-500/15 transition-colors">
+                    <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-red-300 hover:bg-red-500/15 transition-colors">
                         <LogOut size={15} />
                         Logout
                     </button>

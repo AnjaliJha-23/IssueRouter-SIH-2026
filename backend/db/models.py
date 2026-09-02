@@ -1,40 +1,79 @@
 """
-db/models.py — SQLAlchemy ORM models for IssueRouter.
+db/models.py — SQLAlchemy ORM models for IssueRouter (SIH 2026).
 """
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Float, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, Text, DateTime, ForeignKey, Boolean, JSON
 from sqlalchemy.orm import relationship
 from .database import Base
 
+class Organization(Base):
+    __tablename__ = "organizations"
 
-class Cluster(Base):
-    __tablename__ = "clusters"
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=False) # e.g., 'Gov', 'University', 'Industry'
+    location = Column(String, nullable=True)
+    
+    users = relationship("User", back_populates="organization")
+    matches = relationship("Match", back_populates="organization")
 
-    cluster_id      = Column(String, primary_key=True, index=True)
-    priority        = Column(Integer, nullable=False)           # 1 = critical → 4 = low
-    problem         = Column(String, nullable=False)
-    summary         = Column(Text, nullable=False)
-    location        = Column(String, nullable=False)
-    lat             = Column(Float, nullable=True)              # for heatmap / map pins
-    lng             = Column(Float, nullable=True)
-    department      = Column(String, nullable=False)
-    complaint_count = Column(Integer, default=0)
-    rt_reach        = Column(Integer, default=0)
-    trend           = Column(String, default="stable")          # up | down | stable
-    recommended_action = Column(Text, nullable=True)
-    time_window     = Column(String, default="Last 24 hours")
-    status          = Column(String, default="pending")         # pending | inprogress | resolved
-    created_at      = Column(DateTime, default=datetime.utcnow)
+class User(Base):
+    __tablename__ = "users"
 
-    tweets = relationship("Tweet", back_populates="cluster", cascade="all, delete-orphan")
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    role = Column(String, nullable=False) # 'Citizen', 'Gov', 'University', 'Industry'
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=True)
 
+    organization = relationship("Organization", back_populates="users")
+    challenges = relationship("Challenge", back_populates="creator")
 
-class Tweet(Base):
-    __tablename__ = "tweets"
+class Challenge(Base):
+    __tablename__ = "challenges"
 
-    id         = Column(Integer, primary_key=True, autoincrement=True)
-    cluster_id = Column(String, ForeignKey("clusters.cluster_id"), nullable=False)
-    handle     = Column(String, nullable=False)
-    text       = Column(Text, nullable=False)
+    id = Column(String, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    domain = Column(String, nullable=True) # e.g., 'HealthTech', 'EdTech'
+    status = Column(String, default="pending") # pending | verified | matched | in_project | resolved
+    priority_score = Column(Integer, nullable=True)
+    location = Column(String, nullable=False)
+    lat = Column(Float, nullable=True)
+    lng = Column(Float, nullable=True)
+    department = Column(String, nullable=True)
+    complaint_count = Column(Integer, default=1)
+    rt_reach = Column(Integer, default=0)
+    trend = Column(String, default="stable") # up | down | stable
+    created_by = Column(String, ForeignKey("users.id"), nullable=True)
+    verified = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    cluster = relationship("Cluster", back_populates="tweets")
+    creator = relationship("User", back_populates="challenges")
+    matches = relationship("Match", back_populates="challenge")
+    project = relationship("Project", back_populates="challenge", uselist=False)
+
+class Match(Base):
+    __tablename__ = "matches"
+
+    id = Column(String, primary_key=True, index=True)
+    challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=False)
+    match_score = Column(Integer, nullable=False)
+    match_reason = Column(Text, nullable=False)
+    status = Column(String, default="suggested") # suggested | accepted | rejected
+
+    challenge = relationship("Challenge", back_populates="matches")
+    organization = relationship("Organization", back_populates="matches")
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(String, primary_key=True, index=True)
+    challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False, unique=True)
+    status = Column(String, default="prototype") # prototype | testing | pilot | deployed
+    milestones_json = Column(JSON, nullable=True) # Stores list of milestones
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    challenge = relationship("Challenge", back_populates="project")
