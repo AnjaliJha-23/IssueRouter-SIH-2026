@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* ── Tailwind v4: class-based dark mode ──────────────────────── */
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --animate-fade-in-up: fade-in-up 0.5s ease-out forwards;
+}
+
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Theme transition — smooth on toggle ─────────────────────── */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+/* but don't slow down transforms/animations */
+.animate-fade-in-up, canvas, svg * {
+  transition: none !important;
+}
+
+.glass-panel {
+  @apply bg-white/70 dark:bg-gray-900/60 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] rounded-xl;
+}
+
+.glass-panel-hover {
+  @apply transition-all duration-300 hover:bg-white/90 dark:hover:bg-gray-800/80 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_12px_40px_rgba(0,0,0,0.3)] hover:-translate-y-0.5;
+}
+
+body {
+  @apply bg-gradient-to-br from-indigo-50 via-slate-50 to-purple-50 dark:from-[#060d1f] dark:via-[#0b1530] dark:to-[#0f1a3a] min-h-screen text-slate-800 dark:text-slate-200 antialiased;
+}
+
+/* Stagger animations for children */
+.animate-stagger-1 { animation-delay: 100ms; opacity: 0; }
+.animate-stagger-2 { animation-delay: 200ms; opacity: 0; }
+.animate-stagger-3 { animation-delay: 300ms; opacity: 0; }
+.animate-stagger-4 { animation-delay: 400ms; opacity: 0; }
+.animate-stagger-5 { animation-delay: 500ms; opacity: 0; }

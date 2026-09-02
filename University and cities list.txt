@@ -1,0 +1,69 @@
+UNVERSITIES LIST
+
+Central University of Jharkhand (CUJ) — Ranchi
+Ranchi University — Ranchi
+Vinoba Bhave University — Hazaribagh
+Sido Kanhu Murmu University — Dumka
+Kolhan University — Chaibasa
+Nilamber-Pitamber University — Palamu/Medininagar
+Binod Bihari Mahto Koyalanchal University — Dhanbad
+Dr. Shyama Prasad Mukherjee University — Ranchi
+Jharkhand University of Technology — Ranchi
+Jharkhand Raksha Shakti University — Ranchi
+Birsa Agricultural University — Ranchi
+National University of Study and Research in Law (NUSRL) — Ranchi
+Jamshedpur Women's University — Jamshedpur
+Pandit Raghunath Murmu Tribal University — Jamshedpur
+Jharkhand State Open University — Ranchi
+AISECT University — Hazaribagh
+Amity University Jharkhand — Ranchi
+Arka Jain University — Jamshedpur
+Capital University — Koderma
+Jharkhand Rai University — Ranchi
+Netaji Subhas University — Jamshedpur
+Pragyan International University — Ranchi
+Radha Govind University — Ramgarh
+RKDF University — Ranchi
+Ramchandra Chandravanshi University — Palamu
+Sai Nath University — Ranchi
+Sarla Birla University — Ranchi
+ICFAI University, Jharkhand — Ranchi
+Usha Martin University — Ranchi
+YBN University — Ranchi
+Srinath University — Jamshedpur
+Sona Devi University — Ghatsila
+Babu Dinesh Singh University — Garhwa
+Ajim Premji University — Jharkhand
+Sri Nath University — Jamshedpur
+
+
+
+
+CITIES LIST
+
+
+#     District	                   Major City / Towns
+1	Bokaro	                              Bokaro Steel City, Chas, Phusro
+2	Chatra	                              Chatra, Simaria
+3	Deoghar	                              Deoghar, Madhupur
+4	Dhanbad	                              Dhanbad, Jharia, Sindri
+5	Dumka	                              Dumka, Shikaripara
+6	East Singhbhum	                      Jamshedpur, Ghatshila, Chakulia
+7	Garhwa	                              Garhwa, Nagar Untari
+8	Giridih	                              Giridih, Dumri, Bengabad
+9	Godda	                              Godda, Mahagama
+10	Gumla	                              Gumla, Chainpur
+11	Hazaribagh	                      Hazaribagh, Barhi
+12	Jamtara	                              Jamtara, Mihijam
+13	Khunti	                              Khunti, Murhu
+14	Koderma	                              Koderma, Jhumri Telaiya
+15	Latehar	                              Latehar, Chandwa
+16	Lohardaga	                      Lohardaga, Kuru
+17	Pakur	                              Pakur, Maheshpur
+18	Palamu	                              Medininagar (Daltonganj), Hussainabad
+19	Ramgarh	                              Ramgarh, Patratu
+20	Ranchi	                              Ranchi, Bundu, Ratu
+21	Sahibganj	                      Sahibganj, Rajmahal
+22	Seraikela-Kharsawan	              Seraikela, Adityapur, Chandil
+23	Simdega	                              Simdega, Kolebira
+24	West Singhbhum	                      Chaibasa, Chakradharpur, Noamundi

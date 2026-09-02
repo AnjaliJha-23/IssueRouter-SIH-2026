@@ -1,0 +1,482 @@
+[
+    {
+        "id": "1783948573021",
+        "username": "@rahul_verma",
+        "text": "No water supply in Laxmi Nagar since morning, families are struggling badly #complaint.gov",
+        "likes": 14,
+        "retweets": 6,
+        "created_at": "2026-04-20T09:00:00"
+    },
+    {
+        "id": "1783948573022",
+        "username": "@neha_gupta",
+        "text": "Garbage overflow in Rohini sector creating unbearable smell, please take action #complaint.gov",
+        "likes": 22,
+        "retweets": 9,
+        "created_at": "2026-04-20T09:05:00"
+    },
+    {
+        "id": "1783948573023",
+        "username": "@amit_sharma",
+        "text": "Huge pothole in Karol Bagh road, already 2 accidents happened here #complaint.gov",
+        "likes": 18,
+        "retweets": 7,
+        "created_at": "2026-04-20T09:10:00"
+    },
+    {
+        "id": "1783948573024",
+        "username": "@delhi_resident",
+        "text": "Electricity outage in Uttam Nagar for last 4 hours, no response from BSES #complaint.gov",
+        "likes": 16,
+        "retweets": 6,
+        "created_at": "2026-04-20T09:15:00"
+    },
+    {
+        "id": "1783948573025",
+        "username": "@citywatch_delhi",
+        "text": "Sewage overflow in Dwarka streets, very unhygienic and dangerous #complaint.gov",
+        "likes": 25,
+        "retweets": 11,
+        "created_at": "2026-04-20T09:20:00"
+    },
+    {
+        "id": "1783948573026",
+        "username": "@priya_singh",
+        "text": "Water leakage in Mayur Vihar wasting clean water continuously #complaint.gov",
+        "likes": 11,
+        "retweets": 4,
+        "created_at": "2026-04-20T09:25:00"
+    },
+    {
+        "id": "1783948573027",
+        "username": "@traffic_alert_cp",
+        "text": "Traffic signal not working at Connaught Place, massive jam right now #complaint.gov",
+        "likes": 32,
+        "retweets": 14,
+        "created_at": "2026-04-20T09:30:00"
+    },
+    {
+        "id": "1783948573028",
+        "username": "@vikas_kumar",
+        "text": "Road in Saket completely damaged, vehicles getting stuck daily #complaint.gov",
+        "likes": 15,
+        "retweets": 5,
+        "created_at": "2026-04-20T09:35:00"
+    },
+    {
+        "id": "1783948573029",
+        "username": "@anita_mehra",
+        "text": "No electricity in Lajpat Nagar since night, situation getting worse #complaint.gov",
+        "likes": 13,
+        "retweets": 5,
+        "created_at": "2026-04-20T09:40:00"
+    },
+    {
+        "id": "1783948573030",
+        "username": "@ground_report",
+        "text": "Garbage not collected in Janpath area from last 3 days #complaint.gov",
+        "likes": 19,
+        "retweets": 7,
+        "created_at": "2026-04-20T09:45:00"
+    },
+    {
+        "id": "1783948573031",
+        "username": "@rahul_noida",
+        "text": "Drain blockage in Noida causing heavy waterlogging after rain #complaint.gov",
+        "likes": 17,
+        "retweets": 6,
+        "created_at": "2026-04-20T09:50:00"
+    },
+    {
+        "id": "1783948573032",
+        "username": "@gurgaon_updates",
+        "text": "Electric poles damaged in Gurgaon posing serious risk to people #complaint.gov",
+        "likes": 21,
+        "retweets": 8,
+        "created_at": "2026-04-20T09:55:00"
+    },
+    {
+        "id": "1783948573033",
+        "username": "@faridabad_live",
+        "text": "Garbage overflow in Faridabad colonies causing health issues #complaint.gov",
+        "likes": 18,
+        "retweets": 7,
+        "created_at": "2026-04-20T10:00:00"
+    },
+    {
+        "id": "1783948573034",
+        "username": "@akbarroad_watch",
+        "text": "Road damage on Akbar Road leading to traffic congestion #complaint.gov",
+        "likes": 14,
+        "retweets": 5,
+        "created_at": "2026-04-20T10:05:00"
+    },
+    {
+        "id": "1783948573035",
+        "username": "@vasant_kunj_res",
+        "text": "Severe water shortage in Vasant Kunj, residents facing issues #complaint.gov",
+        "likes": 20,
+        "retweets": 8,
+        "created_at": "2026-04-20T10:10:00"
+    },
+    {
+        "id": "1783948573036",
+        "username": "@mumbai_voice",
+        "text": "Water supply problem in Andheri since morning, no update from MCGM #complaint.gov",
+        "likes": 23,
+        "retweets": 9,
+        "created_at": "2026-04-20T10:15:00"
+    },
+    {
+        "id": "1783948573037",
+        "username": "@bandra_alert",
+        "text": "Garbage not cleaned in Bandra streets, situation getting worse #complaint.gov",
+        "likes": 19,
+        "retweets": 7,
+        "created_at": "2026-04-20T10:20:00"
+    },
+    {
+        "id": "1783948573038",
+        "username": "@dadar_local",
+        "text": "Heavy potholes in Dadar roads making driving unsafe #complaint.gov",
+        "likes": 26,
+        "retweets": 10,
+        "created_at": "2026-04-20T10:25:00"
+    },
+    {
+        "id": "1783948573039",
+        "username": "@dharavi_reports",
+        "text": "Sewage overflow in Dharavi creating serious health concerns #complaint.gov",
+        "likes": 28,
+        "retweets": 12,
+        "created_at": "2026-04-20T10:30:00"
+    },
+    {
+        "id": "1783948573040",
+        "username": "@andheri_resident",
+        "text": "Electricity outage in Andheri since last night, no support yet #complaint.gov",
+        "likes": 21,
+        "retweets": 8,
+        "created_at": "2026-04-20T10:35:00"
+    },
+    {
+        "id": "1783948573301",
+        "username": "@rahul_sharma99",
+        "text": "Heavy flooding in Mayur Vihar streets after morning rain, drains are completely blocked #complaint.gov",
+        "likes": 34,
+        "retweets": 12,
+        "created_at": "2026-04-20T13:00:00"
+    },
+    {
+        "id": "1783948573302",
+        "username": "@neha_desh_mukh",
+        "text": "Fire breakout in a residential building at Bandra West, emergency services needed immediately #complaint.gov",
+        "likes": 150,
+        "retweets": 88,
+        "created_at": "2026-04-20T13:05:00"
+    },
+    {
+        "id": "1783948573303",
+        "username": "@aditya_iyer_blr",
+        "text": "Massive sinkhole near Koramangala signal, roads are becoming death traps #complaint.gov",
+        "likes": 45,
+        "retweets": 21,
+        "created_at": "2026-04-20T13:10:00"
+    },
+    {
+        "id": "1783948573304",
+        "username": "@sandeep_tyagi24",
+        "text": "Street lights not working in Rohini Sector 11 for a week, very unsafe for women at night #complaint.gov",
+        "likes": 28,
+        "retweets": 10,
+        "created_at": "2026-04-20T13:15:00"
+    },
+    {
+        "id": "1783948573305",
+        "username": "@pooja_k_mumbai",
+        "text": "Garbage piles accumulating outside Andheri station, the smell is unbearable for commuters #complaint.gov",
+        "likes": 19,
+        "retweets": 6,
+        "created_at": "2026-04-20T13:20:00"
+    },
+    {
+        "id": "1783948573306",
+        "username": "@vikram_sethi_del",
+        "text": "Main water pipeline burst in Dwarka Sector 6, thousands of gallons being wasted #complaint.gov",
+        "likes": 60,
+        "retweets": 35,
+        "created_at": "2026-04-20T13:25:00"
+    },
+    {
+        "id": "1783948573307",
+        "username": "@ananya_rao_88",
+        "text": "Electric transformer sparking near Saket mall, high risk of explosion #complaint.gov",
+        "likes": 88,
+        "retweets": 54,
+        "created_at": "2026-04-20T13:30:00"
+    },
+    {
+        "id": "1783948573308",
+        "username": "@arjun_reddy_it",
+        "text": "Illegal garbage dumping behind restaurants in Indiranagar, BBMP please look into this #complaint.gov",
+        "likes": 22,
+        "retweets": 7,
+        "created_at": "2026-04-20T13:35:00"
+    },
+    {
+        "id": "1783948573309",
+        "username": "@meera_kapoor_official",
+        "text": "Stray dog menace in Lajpat Nagar market, 3 people bitten today morning #complaint.gov",
+        "likes": 42,
+        "retweets": 18,
+        "created_at": "2026-04-20T13:40:00"
+    },
+    {
+        "id": "1783948573310",
+        "username": "@sameer_m_colaba",
+        "text": "No electricity in Colaba since last 6 hours, MCGM/Adani power please resolve #complaint.gov",
+        "likes": 31,
+        "retweets": 14,
+        "created_at": "2026-04-20T13:45:00"
+    },
+    {
+        "id": "1783948573311",
+        "username": "@ravi_chhikara_vlogs",
+        "text": "Road collapse near Ramdev Chowk in Narela, traffic diverted #complaint.gov",
+        "likes": 55,
+        "retweets": 26,
+        "created_at": "2026-04-20T13:50:00"
+    },
+    {
+        "id": "1783948573312",
+        "username": "@sneha_h_blr",
+        "text": "Severe dust pollution due to pending road work in Whitefield, residents facing breathing issues #complaint.gov",
+        "likes": 40,
+        "retweets": 19,
+        "created_at": "2026-04-20T13:55:00"
+    },
+    {
+        "id": "1783948573313",
+        "username": "@farhan_ansari_07",
+        "text": "Contaminated water being supplied in Dharavi area, kids getting sick #complaint.gov",
+        "likes": 95,
+        "retweets": 60,
+        "created_at": "2026-04-20T14:00:00"
+    },
+    {
+        "id": "1783948573314",
+        "username": "@ishani_saxena_del",
+        "text": "Public toilets in Janpath are in pathetic condition, no maintenance since months #complaint.gov",
+        "likes": 15,
+        "retweets": 4,
+        "created_at": "2026-04-20T14:05:00"
+    },
+    {
+        "id": "1783948573315",
+        "username": "@jatin_garg_kb",
+        "text": "Open manholes on Karol Bagh main road, extreme danger for pedestrians #complaint.gov",
+        "likes": 72,
+        "retweets": 41,
+        "created_at": "2026-04-20T14:10:00"
+    },
+    {
+        "id": "1783948573316",
+        "username": "@pratiksha_patil_92",
+        "text": "High tide causing seawater entry in Dadar low-lying areas #complaint.gov",
+        "likes": 48,
+        "retweets": 22,
+        "created_at": "2026-04-20T14:15:00"
+    },
+    {
+        "id": "1783948573317",
+        "username": "@karthik_gowda_hsr",
+        "text": "Illegal tree cutting reported in HSR Layout Bangalore, forest dept please check #complaint.gov",
+        "likes": 36,
+        "retweets": 25,
+        "created_at": "2026-04-20T14:20:00"
+    },
+    {
+        "id": "1783948573318",
+        "username": "@deepak_mishra_dwarka",
+        "text": "Frequent power fluctuations in Dwarka damaging home appliances #complaint.gov",
+        "likes": 24,
+        "retweets": 8,
+        "created_at": "2026-04-20T14:25:00"
+    },
+    {
+        "id": "1783948573319",
+        "username": "@sonal_varma_mumbai",
+        "text": "Broken traffic signals causing chaos at Andheri junction #complaint.gov",
+        "likes": 50,
+        "retweets": 17,
+        "created_at": "2026-04-20T14:30:00"
+    },
+    {
+        "id": "1783948573320",
+        "username": "@yash_dayal_11",
+        "text": "Unauthorized construction blocking the main lane in Rohini Sector 3 #complaint.gov",
+        "likes": 14,
+        "retweets": 3,
+        "created_at": "2026-04-20T14:35:00"
+    },
+    {
+        "id": "1783948573321",
+        "username": "@manish_m_central",
+        "text": "Bridge structural damage observed at Mumbai Central, needs urgent inspection #complaint.gov",
+        "likes": 110,
+        "retweets": 75,
+        "created_at": "2026-04-20T14:40:00"
+    },
+    {
+        "id": "1783948573322",
+        "username": "@shalini_gupta_vk",
+        "text": "Monkey menace in Vasant Kunj increasing, residents afraid to go out #complaint.gov",
+        "likes": 27,
+        "retweets": 11,
+        "created_at": "2026-04-20T14:45:00"
+    },
+    {
+        "id": "1783948573323",
+        "username": "@rohan_murthy_blr",
+        "text": "Sewage water mixing with drinking water lines in Indiranagar #complaint.gov",
+        "likes": 82,
+        "retweets": 44,
+        "created_at": "2026-04-20T14:50:00"
+    },
+    {
+        "id": "1783948573324",
+        "username": "@karan_johar_fans",
+        "text": "Noise pollution beyond midnight in Connaught Place, police please take action #complaint.gov",
+        "likes": 33,
+        "retweets": 12,
+        "created_at": "2026-04-20T14:55:00"
+    },
+    {
+        "id": "1783948573325",
+        "username": "@aarti_pandey_dadar",
+        "text": "Encroachment on footpaths in Dadar making it impossible to walk #complaint.gov",
+        "likes": 21,
+        "retweets": 5,
+        "created_at": "2026-04-20T15:00:00"
+    },
+    {
+        "id": "1783948573326",
+        "username": "@suresh_raina_up",
+        "text": "Low voltage issues in Rohini Sector 15 damaging refrigerators #complaint.gov",
+        "likes": 18,
+        "retweets": 6,
+        "created_at": "2026-04-20T15:05:00"
+    },
+    {
+        "id": "1783948573327",
+        "username": "@pankaj_tripathi_real",
+        "text": "Gas smell near Chembur industrial area, residents worried #complaint.gov",
+        "likes": 125,
+        "retweets": 92,
+        "created_at": "2026-04-20T15:10:00"
+    },
+    {
+        "id": "1783948573328",
+        "username": "@nivedita_bose_84",
+        "text": "Deep crater on the way to Bangalore Airport, very dangerous at high speeds #complaint.gov",
+        "likes": 65,
+        "retweets": 38,
+        "created_at": "2026-04-20T15:15:00"
+    },
+    {
+        "id": "1783948573329",
+        "username": "@mukul_kumar_narela",
+        "text": "Dumpers driving on the wrong side at Narela Chowk, causing accidents daily #complaint.gov",
+        "likes": 41,
+        "retweets": 19,
+        "created_at": "2026-04-20T15:20:00"
+    },
+    {
+        "id": "1783948573330",
+        "username": "@tanya_shergil_del",
+        "text": "Stagnant water in Dwarka parks causing mosquito breeding, fear of dengue #complaint.gov",
+        "likes": 33,
+        "retweets": 14,
+        "created_at": "2026-04-20T15:25:00"
+    },
+    {
+        "id": "1783948573331",
+        "username": "@abhishek_b_junior",
+        "text": "Broken railing on the Bandra-Worli Sea Link approach road #complaint.gov",
+        "likes": 29,
+        "retweets": 11,
+        "created_at": "2026-04-20T15:30:00"
+    },
+    {
+        "id": "1783948573332",
+        "username": "@vijay_mallya_99",
+        "text": "Electronic City flyover jam due to broken down truck #complaint.gov",
+        "likes": 52,
+        "retweets": 24,
+        "created_at": "2026-04-20T15:35:00"
+    },
+    {
+        "id": "1783948573333",
+        "username": "@harsha_bhogle_news",
+        "text": "Huge garbage dump near Noida Sector 62 metro station, needs clearing #complaint.gov",
+        "likes": 17,
+        "retweets": 4,
+        "created_at": "2026-04-20T15:40:00"
+    },
+    {
+        "id": "1783948573334",
+        "username": "@sunita_williams_fan",
+        "text": "Street light wires hanging low in Gurgaon Sector 14, life threatening #complaint.gov",
+        "likes": 78,
+        "retweets": 45,
+        "created_at": "2026-04-20T15:45:00"
+    },
+    {
+        "id": "1783948573335",
+        "username": "@rajesh_khanna_70",
+        "text": "No cleaning of drains in Faridabad before monsoon, we will drown again #complaint.gov",
+        "likes": 39,
+        "retweets": 20,
+        "created_at": "2026-04-20T15:50:00"
+    },
+    {
+        "id": "1783948573336",
+        "username": "@mamta_b_kolkata",
+        "text": "Water supply has a foul smell in Bandra East since morning #complaint.gov",
+        "likes": 22,
+        "retweets": 9,
+        "created_at": "2026-04-20T15:55:00"
+    },
+    {
+        "id": "1783948573337",
+        "username": "@narayana_murthy_70hrs",
+        "text": "Illegal parking in Indiranagar lanes blocking emergency vehicles #complaint.gov",
+        "likes": 30,
+        "retweets": 13,
+        "created_at": "2026-04-20T16:00:00"
+    },
+    {
+        "id": "1783948573338",
+        "username": "@shashi_tharoor_vocab",
+        "text": "Broken tiles on the walking path in Connaught Place, people tripping #complaint.gov",
+        "likes": 12,
+        "retweets": 2,
+        "created_at": "2026-04-20T16:05:00"
+    },
+    {
+        "id": "1783948573339",
+        "username": "@arvind_k_delhi",
+        "text": "Parks in Mayur Vihar Phase 1 being used for illegal activities at night #complaint.gov",
+        "likes": 26,
+        "retweets": 11,
+        "created_at": "2026-04-20T16:10:00"
+    },
+    {
+        "id": "1783948573340",
+        "username": "@azim_premji_blr",
+        "text": "Unscheduled power cuts in Whitefield every evening, please share schedule #complaint.gov",
+        "likes": 20,
+        "retweets": 6,
+        "created_at": "2026-04-20T16:15:00"
+    }
+]
