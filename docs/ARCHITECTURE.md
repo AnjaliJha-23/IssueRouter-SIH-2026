@@ -11,26 +11,76 @@ The application uses shared role- and organization-scoped portals. It does not c
 ## 2. Layered View
 
 ```text
-Intake sources
-  Twitter/X | Citizen form | NGO/community | Panchayat/ULB/government
-	|
-Unified ingestion and normalization
-	|
-AI classification, location/topic extraction, priority, confidence, trend
-	|
-Semantic similarity, duplicate detection, and clustering
-	|
-Master Societal Challenge + linked evidence
-	|
-Government verification and challenge intelligence
-	|
-Explainable Smart Router
-  department | university | faculty/research group | industry/CSR | pilot location
-	|
-University proposal/team + industry collaboration
-	|
-One shared Innovation Project Workspace
-  milestones | prototype | testing | pilot | deployment | impact
+CITIZEN
+                     │
+         Twitter/X / Direct Form
+                     │
+                     ▼
+            ┌────────────────┐
+            │ ISSUE ROUTER   │
+            │ AI ENGINE      │
+            └───────┬────────┘
+                    │
+            ┌─────────┴──────┐
+            │ Classification │
+            │ Deduplication  │
+            │ Priority       │
+            │ Clustering     │
+            └─────────┬──────┘
+                    │
+                    ▼
+          MASTER CHALLENGE
+                    │
+                    ▼
+            GOV VERIFICATION
+                    │
+                    ▼
+             SMART ROUTER
+              /    |    \
+             /     |     \
+            ▼      ▼      ▼
+      University Industry  Govt
+            │       │
+            │       │
+            └───┬───┘
+                │
+                ▼
+          COLLABORATION
+                │
+                ▼
+          PROJECT CREATED
+                │
+          ┌─────┴──────┐
+          ▼            ▼
+      University     Industry
+        Team         Partner
+          │            │
+          └─────┬──────┘
+                ▼
+           DEVELOPMENT
+                │
+          Milestones
+                │
+                ▼
+            PROTOTYPE
+                │
+                ▼
+             TESTING
+                │
+                ▼
+              PILOT
+                │
+                ▼
+            DEPLOYMENT
+                │
+                ▼
+         CITIZEN FEEDBACK
+                │
+                ▼
+          IMPACT ANALYTICS
+                │
+                ▼
+            GOVERNMENT
 ```
 
 ## 3. Repository Ownership Map

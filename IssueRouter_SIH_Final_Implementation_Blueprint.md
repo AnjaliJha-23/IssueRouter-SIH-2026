@@ -25,6 +25,77 @@ The product is not two complaint systems. It is one societal challenge platform 
 
 ## 2. Final End-to-End Product Flow
 
+```text
+CITIZEN
+                     │
+         Twitter/X / Direct Form
+                     │
+                     ▼
+            ┌────────────────┐
+            │ ISSUE ROUTER   │
+            │ AI ENGINE      │
+            └───────┬────────┘
+                    │
+          Classification
+          Deduplication
+          Priority
+          Clustering
+                    │
+                    ▼
+          MASTER CHALLENGE
+                    │
+                    ▼
+            GOV VERIFICATION
+                    │
+                    ▼
+             SMART ROUTER
+              /    |    \
+             /     |     \
+            ▼      ▼      ▼
+      University Industry  Govt
+            │       │
+            │       │
+            └───┬───┘
+                │
+                ▼
+          COLLABORATION
+                │
+                ▼
+          PROJECT CREATED
+                │
+          ┌─────┴──────┐
+          ▼            ▼
+      University     Industry
+        Team         Partner
+          │            │
+          └─────┬──────┘
+                ▼
+           DEVELOPMENT
+                │
+          Milestones
+                │
+                ▼
+            PROTOTYPE
+                │
+                ▼
+             TESTING
+                │
+                ▼
+              PILOT
+                │
+                ▼
+            DEPLOYMENT
+                │
+                ▼
+         CITIZEN FEEDBACK
+                │
+                ▼
+          IMPACT ANALYTICS
+                │
+                ▼
+            GOVERNMENT
+```
+
 The complete lifecycle should be treated as a stateful pipeline. A social post is initially a signal, not automatically an official government challenge. A direct form submission is also an input item. The platform normalizes both, detects related items, creates/updates a master challenge, performs AI analysis, and then moves the challenge into verification and routing.
 
 1. Public signal (Twitter/X) OR direct citizen/community submission
