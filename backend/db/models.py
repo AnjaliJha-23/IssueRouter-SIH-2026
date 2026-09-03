@@ -35,27 +35,75 @@ class Challenge(Base):
 
     id = Column(String, primary_key=True, index=True)
     title = Column(String, nullable=False)
-    description = Column(Text, nullable=False)
-    domain = Column(String, nullable=True) # e.g., 'HealthTech', 'EdTech'
-    status = Column(String, default="pending_verification") # pending_verification | verified | matches_suggested | ready_for_routing | routed | in_project | resolved
+    official_description = Column(Text, nullable=True) # Edited by human
+    ai_generated_summary = Column(Text, nullable=True) # Maintained by pipeline
+    domain = Column(String, nullable=True) 
+    status = Column(String, default="pending_verification") 
     priority_score = Column(Integer, nullable=True)
+    
     location = Column(String, nullable=False)
+    district = Column(String, nullable=True)
+    block = Column(String, nullable=True)
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
+    
     department = Column(String, nullable=True)
-    complaint_count = Column(Integer, default=1) # total evidence count
-    source_counts = Column(JSON, nullable=True) # {"twitter": 47, "citizen": 8, "ngo": 2}
-    ai_confidence = Column(Float, nullable=True)
-    duplicate_risk = Column(Float, nullable=True)
-    rt_reach = Column(Integer, default=0)
-    trend = Column(String, default="stable") # up | down | stable
-    created_by = Column(String, ForeignKey("users.id"), nullable=True)
     verified = Column(Boolean, default=False)
+    created_by = Column(String, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     creator = relationship("User", back_populates="challenges")
     matches = relationship("Match", back_populates="challenge")
     project = relationship("Project", back_populates="challenge", uselist=False)
+    
+    evidence = relationship("ChallengeEvidence", back_populates="challenge")
+    analysis = relationship("ChallengeAnalysis", back_populates="challenge", uselist=False)
+
+class ChallengeEvidence(Base):
+    __tablename__ = "challenge_evidence"
+    
+    id = Column(String, primary_key=True, index=True)
+    challenge_id = Column(String, ForeignKey("challenges.id"), nullable=True) # Can be null if flagged related but not linked
+    source = Column(String, nullable=False) # "twitter", "citizen", etc.
+    raw_text = Column(Text, nullable=False)
+    clean_text = Column(Text, nullable=False)
+    embedding_json = Column(JSON, nullable=True) # JSON list of floats
+    submitted_lat = Column(Float, nullable=True)
+    submitted_lng = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    challenge = relationship("Challenge", back_populates="evidence")
+
+class ChallengeAnalysis(Base):
+    __tablename__ = "challenge_analysis"
+    
+    id = Column(String, primary_key=True, index=True)
+    challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False, unique=True)
+    domain = Column(String, nullable=True)
+    subdomain = Column(String, nullable=True)
+    domain_scores = Column(JSON, nullable=True)
+    priority_score = Column(Integer, nullable=True)
+    priority_factors = Column(JSON, nullable=True)
+    evidence_confidence = Column(Float, nullable=True)
+    trend = Column(String, nullable=True)
+    explanation = Column(Text, nullable=True)
+    model_versions = Column(JSON, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    challenge = relationship("Challenge", back_populates="analysis")
+
+class ChallengeRelation(Base):
+    __tablename__ = "challenge_relations"
+    
+    id = Column(String, primary_key=True, index=True)
+    source_challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False)
+    target_challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False)
+    similarity_score = Column(Float, nullable=False)
+    status = Column(String, default="pending") # pending | merged | rejected
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    source_challenge = relationship("Challenge", foreign_keys=[source_challenge_id])
+    target_challenge = relationship("Challenge", foreign_keys=[target_challenge_id])
 
 class Match(Base):
     __tablename__ = "matches"
@@ -65,7 +113,7 @@ class Match(Base):
     org_id = Column(String, ForeignKey("organizations.id"), nullable=False)
     match_score = Column(Integer, nullable=False)
     match_reason = Column(Text, nullable=False)
-    status = Column(String, default="suggested") # suggested | accepted | rejected
+    status = Column(String, default="suggested")
 
     challenge = relationship("Challenge", back_populates="matches")
     organization = relationship("Organization", back_populates="matches")
@@ -75,8 +123,8 @@ class Project(Base):
 
     id = Column(String, primary_key=True, index=True)
     challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False, unique=True)
-    status = Column(String, default="prototype") # prototype | testing | pilot | deployed
-    milestones_json = Column(JSON, nullable=True) # Stores list of milestones
+    status = Column(String, default="prototype")
+    milestones_json = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     challenge = relationship("Challenge", back_populates="project")
