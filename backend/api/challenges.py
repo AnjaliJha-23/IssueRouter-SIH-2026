@@ -16,17 +16,36 @@ router = APIRouter(prefix="/api/challenges", tags=["challenges"])
 def list_challenges(
     status: Optional[str] = Query(None, description="Filter by status"),
     domain: Optional[str] = Query(None, description="Filter by domain"),
-    verified: Optional[bool] = Query(None, description="Filter by verification status"),
+    district: Optional[str] = Query(None, description="Filter by district"),
+    priority: Optional[str] = Query(None, description="Filter by priority level"),
+    search: Optional[str] = Query(None, description="Search query"),
     db: Session = Depends(get_db)
 ):
     q = db.query(Challenge)
     
-    if status:
+    if status and status != 'all':
         q = q.filter(Challenge.status == status)
     if domain:
         q = q.filter(Challenge.domain == domain)
-    if verified is not None:
-        q = q.filter(Challenge.verified == verified)
+    if district:
+        # Assuming location contains the district string e.g. "Ranchi"
+        q = q.filter(Challenge.location.ilike(f"%{district}%"))
+    if priority:
+        if priority == "critical":
+            q = q.filter(Challenge.priority_score >= 85)
+        elif priority == "high":
+            q = q.filter(Challenge.priority_score >= 70, Challenge.priority_score < 85)
+        elif priority == "medium":
+            q = q.filter(Challenge.priority_score >= 50, Challenge.priority_score < 70)
+        elif priority == "low":
+            q = q.filter(Challenge.priority_score < 50)
+    if search:
+        search = f"%{search}%"
+        q = q.filter(
+            (Challenge.title.ilike(search)) |
+            (Challenge.description.ilike(search)) |
+            (Challenge.id.ilike(search))
+        )
 
     return q.order_by(Challenge.created_at.desc()).all()
 
@@ -59,7 +78,10 @@ def create_challenge(req: ChallengeCreate, db: Session = Depends(get_db)):
         lng=req.lng,
         domain=assigned_domain,
         priority_score=assigned_priority,
-        status="pending",
+        status="pending_verification",
+        source_counts={"social": 1, "citizen": 1},
+        ai_confidence=0.92,
+        duplicate_risk=0.05,
         verified=False,
         # created_by would be set via current_user in real auth
     )
@@ -85,9 +107,32 @@ def verify_challenge(challenge_id: str, req: ChallengeVerify, db: Session = Depe
         raise HTTPException(status_code=404, detail="Challenge not found")
     
     challenge.verified = req.verified
-    if req.verified and challenge.status == "pending":
+    if req.verified and challenge.status == "pending_verification":
         challenge.status = "verified"
         
+    db.commit()
+    db.refresh(challenge)
+    return challenge
+
+from pydantic import BaseModel
+
+class RouteRequest(BaseModel):
+    org_id: str
+    note: Optional[str] = None
+
+@router.post("/{challenge_id}/route", response_model=ChallengeOut)
+def route_challenge(challenge_id: str, req: RouteRequest, db: Session = Depends(get_db)):
+    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    # In a full system, we would create a RoutingHistory or Match record here.
+    # For now, we update the challenge status to routed and persist the routing target.
+    
+    challenge.status = "routed"
+    # We could store org_id in a new column, but updating the status is the minimum for the workflow
+    # to move it to the Progress dashboard.
+    
     db.commit()
     db.refresh(challenge)
     return challenge

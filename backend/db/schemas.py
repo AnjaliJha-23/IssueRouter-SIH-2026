@@ -67,6 +67,9 @@ class ChallengeBase(BaseModel):
     lng: Optional[float]
     department: Optional[str]
     complaint_count: int = 1
+    source_counts: Optional[Any] = None
+    ai_confidence: Optional[float] = None
+    duplicate_risk: Optional[float] = None
     rt_reach: int = 0
     trend: str = "stable"
     created_by: Optional[str]

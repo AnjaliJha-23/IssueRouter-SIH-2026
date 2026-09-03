@@ -1,12 +1,6 @@
 import { Search, X } from 'lucide-react'
-import { clusters } from '../../data/Clusters'
 import { useMemo } from 'react'
-
-// Derive unique locations, departments and types from the data itself
-const LOCATIONS = [...new Set(clusters.map((c) => c.location))].sort()
-const DEPARTMENTS = [...new Set(clusters.map((c) => c.department))].sort()
-const TYPES = [...new Set(clusters.map((c) => c.problem.split('—')[0].trim()))].sort()
-
+import { JHARKHAND_DISTRICTS, DOMAINS, PRIORITIES } from '../../data/geography'
 
 function SelectWrapper({ children }) {
     return (
@@ -24,21 +18,24 @@ function SelectWrapper({ children }) {
 }
 
 export default function FilterBar({ filters, onChange }) {
-    const { search, type, location, department } = filters
+    const { search, domain, district, priority } = filters
 
     const activeChips = useMemo(() => {
         const chips = []
         if (search) chips.push({ label: `"${search}"`, key: 'search' })
-        if (type) chips.push({ label: type, key: 'type' })
-        if (location) chips.push({ label: location, key: 'location' })
-        if (department) chips.push({ label: department, key: 'department' })
+        if (domain) chips.push({ label: domain, key: 'domain' })
+        if (district) chips.push({ label: district, key: 'district' })
+        if (priority) {
+            const priorityLabel = PRIORITIES.find(p => p.value === priority)?.label || priority;
+            chips.push({ label: priorityLabel, key: 'priority' });
+        }
         return chips
-    }, [search, type, location, department])
+    }, [search, domain, district, priority])
 
     const set = (key, value) => onChange({ ...filters, [key]: value })
 
     const reset = () =>
-        onChange({ search: '', type: '', location: '', department: '' })
+        onChange({ search: '', domain: '', district: '', priority: '' })
 
     const baseSelect = `
     w-full h-[34px] pl-2.5 pr-7 text-[12px] appearance-none
@@ -58,7 +55,7 @@ export default function FilterBar({ filters, onChange }) {
                 {/* Search */}
                 <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
                     <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                        Search cluster
+                        Search challenge
                     </span>
                     <div className="relative">
                         <Search
@@ -67,9 +64,9 @@ export default function FilterBar({ filters, onChange }) {
                         />
                         <input
                             type="text"
-                            value={search}
+                            value={search || ''}
                             onChange={(e) => set('search', e.target.value)}
-                            placeholder="Problem, location, cluster ID..."
+                            placeholder="Problem, location, challenge ID..."
                             className="
                 w-full h-[34px] pl-8 pr-3 text-[12px]
                 bg-gray-100 dark:bg-gray-700
@@ -83,58 +80,58 @@ export default function FilterBar({ filters, onChange }) {
                     </div>
                 </div>
 
-                {/* Complaint type */}
+                {/* Domain */}
                 <div className="flex flex-col gap-1 min-w-[140px]">
                     <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                        Complaint Type
+                        Domain
                     </span>
                     <SelectWrapper>
                         <select
-                            value={type}
-                            onChange={(e) => set('type', e.target.value)}
+                            value={domain || ''}
+                            onChange={(e) => set('domain', e.target.value)}
                             className={baseSelect}
                         >
-                            <option value="">All types</option>
-                            {TYPES.map((t) => (
-                                <option key={t} value={t}>{t}</option>
+                            <option value="">All Domains</option>
+                            {DOMAINS.map((d) => (
+                                <option key={d} value={d}>{d}</option>
                             ))}
                         </select>
                     </SelectWrapper>
                 </div>
 
-                {/* Location */}
+                {/* District */}
                 <div className="flex flex-col gap-1 min-w-[140px]">
                     <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                        Location
+                        District
                     </span>
                     <SelectWrapper>
                         <select
-                            value={location}
-                            onChange={(e) => set('location', e.target.value)}
+                            value={district || ''}
+                            onChange={(e) => set('district', e.target.value)}
                             className={baseSelect}
                         >
-                            <option value="">All locations</option>
-                            {LOCATIONS.map((loc) => (
+                            <option value="">Jharkhand (All)</option>
+                            {JHARKHAND_DISTRICTS.map((loc) => (
                                 <option key={loc} value={loc}>{loc}</option>
                             ))}
                         </select>
                     </SelectWrapper>
                 </div>
 
-                {/* Department */}
+                {/* Priority */}
                 <div className="flex flex-col gap-1 min-w-[120px]">
                     <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                        Department
+                        Priority
                     </span>
                     <SelectWrapper>
                         <select
-                            value={department}
-                            onChange={(e) => set('department', e.target.value)}
+                            value={priority || ''}
+                            onChange={(e) => set('priority', e.target.value)}
                             className={baseSelect}
                         >
-                            <option value="">All departments</option>
-                            {DEPARTMENTS.map((dept) => (
-                                <option key={dept} value={dept}>{dept}</option>
+                            <option value="">All priorities</option>
+                            {PRIORITIES.map((p) => (
+                                <option key={p.value} value={p.value}>{p.label}</option>
                             ))}
                         </select>
                     </SelectWrapper>

@@ -2,19 +2,22 @@ import { useState, useEffect, useMemo } from 'react'
 import { Layers, Clock, CheckCircle2, Target } from 'lucide-react'
 import FilterBar from '../components/ui/FilterBar'
 import ChallengeCard from '../components/ui/ChallengeCard'
+import ChallengeDetailDrawer from '../components/ui/ChallengeDetailDrawer'
+import RoutingModal from '../components/ui/RoutingModal'
 
 const STATUS_FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'pending', label: 'Pending Verification' },
-  { key: 'verified', label: 'Verified & Routing' },
-  { key: 'in_project', label: 'In Project' },
+  { key: 'all', label: 'All Active' },
+  { key: 'pending_verification', label: 'Pending Verification' },
+  { key: 'verified', label: 'Verified' },
+  { key: 'matches_suggested', label: 'Matches Suggested' },
+  { key: 'ready_for_routing', label: 'Ready for Routing' },
 ]
 
 const DEFAULT_FILTERS = {
   search: '',
-  type: '',
-  location: '',
-  department: '',
+  domain: '',
+  district: '',
+  priority: '',
 }
 
 const INITIAL_VISIBLE = 9
@@ -42,7 +45,8 @@ export default function GovDashboard() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
-  const [expandedId, setExpandedId] = useState(null)
+  const [selectedChallenge, setSelectedChallenge] = useState(null)
+  const [routingChallenge, setRoutingChallenge] = useState(null)
   
   const [challenges, setChallenges] = useState([])
   const [stats, setStats] = useState(null)
@@ -50,13 +54,22 @@ export default function GovDashboard() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [statusFilter, filters])
 
   const fetchData = async () => {
     setLoading(true)
     try {
+      const params = new URLSearchParams()
+      if (statusFilter !== 'all') params.append('status', statusFilter)
+      if (filters.search) params.append('search', filters.search)
+      if (filters.domain) params.append('domain', filters.domain)
+      if (filters.district) params.append('district', filters.district)
+      if (filters.priority) params.append('priority', filters.priority)
+
+      const qs = params.toString() ? `?${params.toString()}` : ''
+
       const [chRes, stRes] = await Promise.all([
-        fetch('http://localhost:8000/api/challenges/'),
+        fetch(`http://localhost:8000/api/challenges/${qs}`),
         fetch('http://localhost:8000/api/stats/overview')
       ])
       if (chRes.ok) setChallenges(await chRes.json())
@@ -70,46 +83,78 @@ export default function GovDashboard() {
 
   const filtered = useMemo(() => {
     return challenges.filter((c) => {
-      if (statusFilter !== 'all' && c.status !== statusFilter) return false
-      
-      // We don't have perfect domain mapping to old filters, but we can do simple search
-      if (filters.search) {
-        const term = filters.search.toLowerCase()
-        if (!c.title.toLowerCase().includes(term) && !c.description.toLowerCase().includes(term)) return false
-      }
-      if (filters.location && !c.location.includes(filters.location)) return false
-      if (filters.department && c.department !== filters.department) return false
-      
+      // Exclude challenges that have left the active dashboard
+      if (['routed', 'in_project', 'resolved'].includes(c.status)) return false;
       return true
-    })
-  }, [challenges, statusFilter, filters])
+    }).sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0))
+  }, [challenges])
 
   const counts = useMemo(() => {
-    if (!stats) return { total: 0, pending: 0, verified: 0, in_project: 0 }
-    return {
-      total: stats.total_challenges,
-      pending: stats.pending_verification,
-      verified: challenges.filter(c => c.status === 'verified' || c.status === 'matched').length,
-      in_project: stats.in_project + stats.resolved
-    }
-  }, [stats, challenges])
+    const active = challenges.filter(c => !['routed', 'in_project', 'resolved'].includes(c.status));
+    
+    // Group counts dynamically
+    const dynamicCounts = {
+      total: active.length,
+      pending_verification: 0,
+      verified: 0,
+      matches_suggested: 0,
+      ready_for_routing: 0,
+    };
+    
+    active.forEach(c => {
+      if (dynamicCounts[c.status] !== undefined) {
+        dynamicCounts[c.status]++;
+      }
+    });
+    
+    // Also add some meta stats for the top KPI row
+    dynamicCounts.high_priority = active.filter(c => c.priority_score >= 85).length;
+    return dynamicCounts;
+  }, [challenges])
 
   const visibleClusters = filtered.slice(0, visibleCount)
   const hasMore = visibleCount < filtered.length
   const remaining = filtered.length - visibleCount
 
-  const handleVerifyRoute = async (id) => {
-    try {
-      const res = await fetch(`http://localhost:8000/api/challenges/${id}/verify`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ verified: true })
-      })
-      if (res.ok) {
-        fetchData()
+  const handleAction = async (challenge) => {
+    if (challenge.status === 'pending_verification') {
+      try {
+        const res = await fetch(`http://localhost:8000/api/challenges/${challenge.id}/verify`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ verified: true })
+        })
+        if (res.ok) {
+          fetchData()
+          // Re-select if drawer is open to update status visually
+          if (selectedChallenge?.id === challenge.id) {
+             const updated = await res.json();
+             setSelectedChallenge(updated);
+          }
+        }
+      } catch (e) {
+        console.error(e)
       }
+    } else {
+      // It's verified or ready to route, open routing modal
+      setRoutingChallenge(challenge)
+    }
+  }
+
+  const handleConfirmRoute = async (id, orgId, note) => {
+    try {
+        const res = await fetch(`http://localhost:8000/api/challenges/${id}/route`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ org_id: orgId, note })
+        });
+        if (res.ok) {
+            setRoutingChallenge(null);
+            setSelectedChallenge(null); // Close drawer if open
+            fetchData();
+        }
     } catch (e) {
-      console.error(e)
+        console.error("Failed to route", e);
     }
   }
 
@@ -134,33 +179,33 @@ export default function GovDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           {
-            label: 'Total Challenges',
+            label: 'Active Challenges',
             value: loading ? '…' : counts.total,
-            sub: 'active civic issues',
+            sub: `${counts.pending_verification} pending verification`,
             valueColor: 'from-gray-700 to-gray-500 dark:from-white dark:to-gray-400',
             iconBg: 'bg-gray-100 dark:bg-gray-700',
             icon: <Layers className="w-5 h-5 text-gray-600 dark:text-gray-300" />,
           },
           {
-            label: 'Pending',
-            value: loading ? '…' : counts.pending,
-            sub: 'needs verification',
+            label: 'Pending Verification',
+            value: loading ? '…' : counts.pending_verification,
+            sub: 'requires review',
             valueColor: 'from-amber-600 to-orange-500',
             iconBg: 'bg-amber-50 dark:bg-amber-900/30',
             icon: <Clock className="w-5 h-5 text-amber-600 dark:text-amber-500" />,
           },
           {
-            label: 'Verified & Routing',
-            value: loading ? '…' : counts.verified,
-            sub: 'waiting for partner',
-            valueColor: 'from-blue-600 to-indigo-500',
-            iconBg: 'bg-blue-50 dark:bg-blue-900/30',
-            icon: <Target className="w-5 h-5 text-blue-600 dark:text-blue-500" />,
+            label: 'High Priority',
+            value: loading ? '…' : counts.high_priority,
+            sub: 'critical issues',
+            valueColor: 'from-red-600 to-rose-500',
+            iconBg: 'bg-red-50 dark:bg-red-900/30',
+            icon: <Target className="w-5 h-5 text-red-600 dark:text-red-500" />,
           },
           {
-            label: 'Active Projects',
-            value: loading ? '…' : counts.in_project,
-            sub: 'solutions in progress',
+            label: 'Ready for Routing',
+            value: loading ? '…' : counts.ready_for_routing,
+            sub: 'matches available',
             valueColor: 'from-green-600 to-emerald-500',
             iconBg: 'bg-green-50 dark:bg-green-900/30',
             icon: <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-500" />,
@@ -239,9 +284,9 @@ export default function GovDashboard() {
                 key={challenge.id}
                 challenge={challenge}
                 rank={i + 1}
-                expanded={expandedId === challenge.id}
-                onToggle={() => setExpandedId(prev => prev === challenge.id ? null : challenge.id)}
-                onVerify={() => handleVerifyRoute(challenge.id)}
+                expanded={false} // Drawer replaces expansion
+                onToggle={() => setSelectedChallenge(challenge)}
+                onVerify={() => handleAction(challenge)}
               />
             ))}
           </div>
@@ -268,6 +313,22 @@ export default function GovDashboard() {
           )}
         </>
       )}
+
+      {/* ── Detail Drawer ─────────────────────── */}
+      <ChallengeDetailDrawer
+        challenge={selectedChallenge}
+        isOpen={!!selectedChallenge}
+        onClose={() => setSelectedChallenge(null)}
+        onRoute={handleAction}
+      />
+
+      {/* ── Routing Modal ─────────────────────── */}
+      <RoutingModal 
+        challenge={routingChallenge}
+        isOpen={!!routingChallenge}
+        onClose={() => setRoutingChallenge(null)}
+        onConfirm={handleConfirmRoute}
+      />
     </div>
   )
 }

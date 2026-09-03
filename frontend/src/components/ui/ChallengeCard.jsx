@@ -33,17 +33,21 @@ const getSeverity = (score) => {
 }
 
 const STATUS_STYLES = {
-    pending: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    pending_verification: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
     verified: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    matched: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-    in_project: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    matches_suggested: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    ready_for_routing: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    routed: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    in_project: 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
     resolved: 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
 }
 
 const STATUS_LABELS = {
-    pending: 'Pending Verification',
-    verified: 'Verified & Routing',
-    matched: 'Matches Suggested',
+    pending_verification: 'Pending Verification',
+    verified: 'Verified',
+    matches_suggested: 'Matches Suggested',
+    ready_for_routing: 'Ready For Routing',
+    routed: 'Routed',
     in_project: 'Active Project',
     resolved: 'Resolved',
 }
@@ -57,7 +61,7 @@ function TrendIcon({ trend }) {
 export default function ChallengeCard({ challenge, rank, expanded, onToggle, onVerify }) {
     const ps = getPriorityStyle(challenge.priority_score)
     const sev = getSeverity(challenge.priority_score)
-    const liveStatusStyle = STATUS_STYLES[challenge.status] || STATUS_STYLES.pending
+    const liveStatusStyle = STATUS_STYLES[challenge.status] || STATUS_STYLES.pending_verification
     const liveStatusLabel = STATUS_LABELS[challenge.status] || challenge.status
 
     return (
@@ -69,11 +73,16 @@ export default function ChallengeCard({ challenge, rank, expanded, onToggle, onV
                 </div>
 
                 <div className="pl-6 flex flex-col flex-1 gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide ${sev.bg}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sev.dot}`} />
-                            {sev.label} ({challenge.priority_score})
-                        </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded">
+                                {challenge.id}
+                            </span>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide ${sev.bg}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sev.dot}`} />
+                                {sev.label} • {challenge.priority_score}
+                            </span>
+                        </div>
                         <span className={`inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${liveStatusStyle}`}>
                             {liveStatusLabel}
                         </span>
@@ -100,24 +109,23 @@ export default function ChallengeCard({ challenge, rank, expanded, onToggle, onV
             </div>
 
             {/* ── Stats row ── */}
-            <div className="grid grid-cols-3 border-t border-neutral-100 dark:border-neutral-700/50 bg-neutral-50/50 dark:bg-neutral-800/30 flex-shrink-0">
-                <div className="py-3 text-center border-r border-neutral-100 dark:border-neutral-700/50">
-                    <p className="text-xl font-bold bg-gradient-to-br from-neutral-800 to-neutral-500 bg-clip-text text-transparent dark:from-white dark:to-neutral-400">
-                        {challenge.complaint_count}
-                    </p>
-                    <p className="text-[9px] font-bold text-neutral-400 mt-0.5 uppercase tracking-wider">Reports</p>
-                </div>
-                <div className="py-3 text-center border-r border-neutral-100 dark:border-neutral-700/50">
-                    <p className="text-xl font-bold bg-gradient-to-br from-neutral-800 to-neutral-500 bg-clip-text text-transparent dark:from-white dark:to-neutral-400">
-                        {challenge.rt_reach.toLocaleString()}
-                    </p>
-                    <p className="text-[9px] font-bold text-neutral-400 mt-0.5 uppercase tracking-wider">Reach</p>
-                </div>
-                <div className="py-3 flex flex-col items-center justify-center gap-1">
-                    <div className="bg-white dark:bg-neutral-700 p-1 rounded shadow-sm border border-neutral-100 dark:border-neutral-600">
-                        <TrendIcon trend={challenge.trend} />
+            <div className="flex items-center justify-between px-4 py-2.5 border-t border-neutral-100 dark:border-neutral-700/50 bg-neutral-50/50 dark:bg-neutral-800/30 flex-shrink-0">
+                <div className="flex gap-4">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">Evidence</span>
+                        <div className="flex items-center gap-2 text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                            {challenge.source_counts?.social > 0 && <span>{challenge.source_counts.social} Social</span>}
+                            {challenge.source_counts?.citizen > 0 && <span>• {challenge.source_counts.citizen} Citizen</span>}
+                            {challenge.source_counts?.ngo > 0 && <span>• {challenge.source_counts.ngo} NGO</span>}
+                        </div>
                     </div>
-                    <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Trend</p>
+                </div>
+                
+                <div className="flex flex-col text-right">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">AI Analysis</span>
+                    <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                        Confidence {Math.round((challenge.ai_confidence || 0) * 100)}%
+                    </span>
                 </div>
             </div>
 
@@ -130,48 +138,6 @@ export default function ChallengeCard({ challenge, rank, expanded, onToggle, onV
                 {expanded ? 'Hide details' : 'View Action Details'}
             </button>
 
-            {/* ── Expandable details ── */}
-            {expanded && (
-                <div className="border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900/50 p-4 space-y-4 animate-fade-in-up">
-                    <div className="space-y-2 text-[12px]">
-                        <div className="flex gap-2">
-                            <span className="text-neutral-500 w-24 flex-shrink-0 font-medium">Challenge ID</span>
-                            <span className="text-neutral-900 dark:text-neutral-300 font-mono text-[10px] bg-neutral-200 dark:bg-neutral-800 px-1 rounded">{challenge.id}</span>
-                        </div>
-                        <div className="flex gap-2">
-                            <span className="text-neutral-500 w-24 flex-shrink-0 font-medium">Full location</span>
-                            <span className="text-neutral-900 dark:text-neutral-300 font-medium">{challenge.location}</span>
-                        </div>
-                        <div className="flex gap-2">
-                            <span className="text-neutral-500 w-24 flex-shrink-0 font-medium">Submitted</span>
-                            <span className="text-neutral-900 dark:text-neutral-300 font-medium">{new Date(challenge.created_at).toLocaleString()}</span>
-                        </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="pt-2">
-                        {challenge.status === 'pending' ? (
-                            <button
-                                onClick={onVerify}
-                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold bg-green-600 hover:bg-green-500 text-white transition-all duration-200 shadow shadow-green-600/20"
-                            >
-                                <ShieldCheck size={16} />
-                                Verify & Send to Smart Router
-                            </button>
-                        ) : challenge.status === 'verified' || challenge.status === 'matched' ? (
-                            <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                                <Target size={16} />
-                                Routing to Organizations...
-                            </div>
-                        ) : (
-                            <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                <CheckCircle2 size={16} />
-                                Project Formed & Active
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
         </div>
     )
 }

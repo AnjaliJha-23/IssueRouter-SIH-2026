@@ -37,13 +37,16 @@ class Challenge(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=False)
     domain = Column(String, nullable=True) # e.g., 'HealthTech', 'EdTech'
-    status = Column(String, default="pending") # pending | verified | matched | in_project | resolved
+    status = Column(String, default="pending_verification") # pending_verification | verified | matches_suggested | ready_for_routing | routed | in_project | resolved
     priority_score = Column(Integer, nullable=True)
     location = Column(String, nullable=False)
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
     department = Column(String, nullable=True)
-    complaint_count = Column(Integer, default=1)
+    complaint_count = Column(Integer, default=1) # total evidence count
+    source_counts = Column(JSON, nullable=True) # {"twitter": 47, "citizen": 8, "ngo": 2}
+    ai_confidence = Column(Float, nullable=True)
+    duplicate_risk = Column(Float, nullable=True)
     rt_reach = Column(Integer, default=0)
     trend = Column(String, default="stable") # up | down | stable
     created_by = Column(String, ForeignKey("users.id"), nullable=True)
