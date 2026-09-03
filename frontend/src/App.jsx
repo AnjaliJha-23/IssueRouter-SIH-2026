@@ -10,6 +10,7 @@ import Analytics from './pages/Analytics'
 import Maps from './pages/Maps'
 import Settings from './pages/Settings'
 import Progress from './pages/Progress'
+import LandingPage from './pages/LandingPage'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 import ProjectWorkspace from './pages/ProjectWorkspace'
@@ -22,14 +23,12 @@ export default function App() {
           <BrowserRouter>
             <Routes>
               {/* Public Routes */}
+              <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
               
               {/* Protected Routes inside Layout */}
-              <Route path="/" element={<ProtectedRoute />}>
+              <Route element={<ProtectedRoute />}>
                 <Route element={<Layout />}>
-                  {/* Default redirect (could be improved to redirect based on role) */}
-                  <Route index element={<Navigate to="/dashboard/gov" replace />} />
-                  
                   <Route path="dashboard/gov" element={<GovDashboard />} />
                   <Route path="dashboard/org" element={<OrgDashboard />} />
                   <Route path="dashboard/citizen" element={<CitizenDashboard />} />
@@ -44,7 +43,7 @@ export default function App() {
               </Route>
               
               <Route path="/unauthorized" element={<div className="p-10 text-center text-red-500 text-xl font-bold">Unauthorized Access</div>} />
-              <Route path="*" element={<Navigate to="/login" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
         </AuthProvider>
