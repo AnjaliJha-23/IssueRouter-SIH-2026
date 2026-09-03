@@ -1,103 +1,82 @@
-# Roadmap — SIC Portal
+# Roadmap - SIC Portal
 
-**Submission deadline: 20 September 2026 (sih.gov.in)**
-**Today: 1 September 2026 — roughly 19 days out.**
+This roadmap follows the canonical workflow in `IssueRouter_SIH_Final_Implementation_Blueprint.md` and `docs/MVP_PLAN.md`.
 
-This roadmap turns `MVP_PLAN.md §4.6`'s three-tier scoping into a day-by-day plan. Dates below are a proposal — adjust to your team's actual availability, but keep the phase order: the engine before the body, the body before the polish.
+## Phase 0 - Repository Audit and Foundation
 
-Legend: 🟢 Fully built & demoed live · 🟡 Simplified but functional · ⚪ Roadmapped, not built (mention in pitch only)
+- [ ] Inspect the actual frontend, backend, database, ingestion, AI pipeline, routes, components, and state management.
+- [ ] Lock the Master Challenge plus linked Evidence model.
+- [ ] Confirm reusable IssueRouter modules and migration risks.
+- [ ] Agree organization roles, permissions, and state transitions.
+- [ ] Prepare Jharkhand districts, blocks, institutions, and controlled demo data.
 
----
+**Exit:** every teammate can run the current FastAPI and React/Vite applications locally and the implementation plan uses real repository paths.
 
-## Phase 0 — Foundation (Sep 1–3)
+## Phase 1 - Unified Intake and AI Engine
 
-Goal: everyone can run the project locally and the schema is agreed before anyone builds against it.
+- [ ] Extend Twitter/X ingestion and seeded replay support.
+- [ ] Add direct citizen/community submission.
+- [ ] Normalize every source into common Evidence/Signal records.
+- [ ] Implement classification, location/topic extraction, semantic similarity, deduplication, clustering, priority, confidence, trend, and canonical summary.
+- [ ] Link related evidence to one Master Challenge.
 
-- [ ] Repo scaffolded (backend + frontend skeleton, see `README.md §6`)
-- [ ] Data model finalized and reviewed against `ARCHITECTURE.md §2` (Challenge, University, Faculty, IndustryPartner, Team, Proposal, Project, Notification)
-- [ ] Seed data drafted: Jharkhand districts/blocks gazetteer, real universities with discipline tags, plausible industry/CSR partners
-- [ ] Dev environment doc confirmed working for every team member (`README.md §7`)
-- [ ] Task ownership assigned per module (see `CONTRIBUTING.md §4`)
+**Exit:** a social signal and direct report about the same issue converge on one Master Challenge without making separate clusters.
 
-**Exit criteria**: `git clone` → running FastAPI + Next.js dev servers takes under 10 minutes for a teammate who wasn't the one who wrote the setup.
+## Phase 2 - Government Challenge Intelligence
 
-## Phase 1 — Reused Engine, Ported and Retargeted (Sep 4–8) 🟢
+- [ ] Show unified challenge filters by source, domain, priority, verification, routing, and project state.
+- [ ] Build Challenge Detail with evidence source breakdown, AI analysis, location, relations, and trend.
+- [ ] Add human verification, rejection, closure, and override controls.
+- [ ] Record sensitive actions and transitions in AuditLog.
 
-Goal: get IssueRouter's proven pipeline running against this project's domains, not civic complaint categories.
+**Exit:** an authorized government user can review evidence and verify a candidate challenge.
 
-- [ ] Port BART zero-shot classification, retag from 7 civic categories to the 10 thematic domains in the problem statement
-- [ ] Port spaCy EntityRuler, rebuild gazetteer for Jharkhand districts/blocks (not Delhi-centric)
-- [ ] Port sentence-transformers dedup (all-MiniLM-L6-v2 + cosine similarity)
-- [ ] Port priority scoring formula, reweight from urgency+social-reach to volume+severity
-- [ ] End-to-end test: submit a raw Challenge description → get back domain, dedup flag, priority score
+## Phase 3 - Explainable Smart Router
 
-**Exit criteria**: a challenge like "no clean drinking water in [Jharkhand block]" gets correctly classified as `water resources`, doesn't false-positive dedup against unrelated challenges, and gets a sane priority score.
+- [ ] Rank government departments, universities, faculty/research groups, industry/CSR partners, and pilot locations.
+- [ ] Use configurable weighted deterministic scoring.
+- [ ] Store factor breakdowns and human-readable match reasons.
+- [ ] Add invitation and accept/reject/request-information responses.
 
-## Phase 2 — University Matching & Collaboration Layer (Sep 9–12) 🟢
+**Exit:** a verified challenge returns ranked matches that a reviewer can explain and override.
 
-Goal: the genuinely new part that didn't exist in IssueRouter.
+## Phase 4 - University and Industry Collaboration
 
-- [ ] Tag-overlap matcher: Challenge domain → best-fit University by discipline tag overlap
-- [ ] University dashboard: view assigned challenges, form a Team, submit a Proposal
-- [ ] Faculty/Team data model wired to Proposal submission
-- [ ] Explainability check: for any routed challenge, can you point to the exact matching tag? (This is the pitch's answer to "why this university?" — don't skip verifying it.)
+- [ ] Build one organization-scoped University Portal.
+- [ ] Add university acceptance, multidisciplinary team formation, and proposal submission.
+- [ ] Build one organization-scoped Industry Portal.
+- [ ] Add collaboration responses and support types: Mentor, Technology, Funding/CSR, Equipment, Pilot Support, Deployment, and Co-development.
 
-**Exit criteria**: a challenge routes to a plausible university given its seed discipline tags, and a Proposal can be created against it through the UI, not just the DB.
+**Exit:** a university can create a proposal and an industry/CSR partner can attach support to the resulting collaboration.
 
-## Phase 3 — Industry Partnership Layer (Sep 13–15) 🟢
+## Phase 5 - Shared Project Lifecycle
 
-Goal: close the loop the problem statement is actually about — university work reaching funding and deployment.
+- [ ] Create one shared Project Workspace from an approved proposal.
+- [ ] Add team, milestones, deliverables, prototype, testing, pilot, communication, impact, and governance views.
+- [ ] Implement project progression: Planned -> Active -> Prototype -> Testing -> Pilot -> Deployed -> Impact Validation -> Closed.
+- [ ] Add citizen feedback and impact metrics.
 
-- [ ] Industry dashboard: browse open Proposals across all universities
-- [ ] Pledge mechanism (funding/mentorship/deployment — no real payment processing, see ⚪ below)
-- [ ] Project status field wired: `submitted → team formed → prototype → testing → deployed`
+**Exit:** government, university, and industry see permission-appropriate views of the same project and its progress.
 
-**Exit criteria**: an industry user can find an open Proposal and pledge support, and that pledge is visible from both the university and government views.
+## Phase 6 - Analytics, Demo Hardening, and Rehearsal
 
-## Phase 4 — Government Analytics + Notifications (Sep 16–17) 🟢 / 🟡
+- [ ] Add challenge, routing, project, and impact KPIs.
+- [ ] Verify organization and role permissions.
+- [ ] Add seeded/replay fallback for unstable external services.
+- [ ] Rehearse the HealthTech story from discovery to impact in 5-10 minutes.
+- [ ] Test responsive UI and failure fallbacks.
 
-- [ ] Government dashboard: volume, domain/district distribution, university/industry engagement counts, pipeline progress
-- [ ] In-app notification system: citizen (challenge picked up), university (new routed challenge), industry (new open proposal) 🟢
-- [ ] 🟡 Role selector as access control (citizen/university/industry/government) — confirm this is clearly framed as MVP simplification in the pitch, not hidden
-- [ ] 🟡 Basic file upload/display for challenge photos — confirm no production storage pipeline is implied anywhere in the demo
+**Exit:** the full flow runs without relying on a live Twitter/X API.
 
-**Exit criteria**: government dashboard numbers update correctly when you run through the full flow once end to end.
+## Explicitly Outside the SIH MVP
 
-## Phase 5 — Jharkhand Grounding Pass (Sep 18) 🟢
+- Multilingual intake.
+- Real payment processing or advanced funding ledger.
+- Blockchain.
+- Sophisticated custom model training.
+- Large-scale external integrations.
+- Fully featured chat.
 
-Goal: make sure nothing in the demo accidentally still looks like IssueRouter's Delhi/Mumbai data.
+## Demo Story
 
-- [ ] Audit every seed record: real districts/blocks, real universities (BIT Mesra, IIT ISM Dhanbad, NIT Jamshedpur, Central University of Jharkhand, Vinoba Bhave University, others), plausible industry/CSR partners (Tata Steel Foundation, JSPL CSR as reference points)
-- [ ] Walk through the full demo flow with Jharkhand-specific example challenges (not generic placeholders)
-
-**Exit criteria**: nothing in the live demo would make a judge ask "wait, is this actually for Jharkhand?"
-
-## Phase 6 — Polish, Pitch, Rehearsal (Sep 19–20)
-
-- [ ] Full end-to-end dry run, timed
-- [ ] Pitch deck finalized, explicitly stating the three-tier scope (🟢/🟡/⚪) as a strength, per `MVP_PLAN.md §4.6`
-- [ ] Prepared answer for "why tag-overlap and not embedding similarity for university matching" (`ARCHITECTURE.md §4`)
-- [ ] Prepared answer for "what would production auth/multilingual/payments look like" (they're ⚪, not secrets you're hiding — have a one-liner ready for each)
-- [ ] Submission uploaded well before the 20 Sep deadline, not at the wire
-
----
-
-## ⚪ Explicitly Not Building (say so proactively, don't get caught by a question)
-
-- Production authentication and security
-- Multilingual intake (Hindi and regional languages)
-- Real funding/payment flows
-- IP and legal tracking
-- SMS/email notification delivery
-- Video content analysis
-
-If a judge asks about any of these, the answer is "roadmapped — here's what it would take" (`MVP_PLAN.md §4.6`), not a scramble.
-
----
-
-## Demo-Day Checklist
-
-- [ ] One rehearsed happy-path walkthrough: citizen submits → AI classifies/dedupes/scores → routes to university → team forms, proposal submitted → industry pledges → status progresses → government dashboard reflects it all → notifications fired at each step
-- [ ] Backup plan if live demo breaks: recorded screen capture of the same flow
-- [ ] Seed data reset script so the demo can be re-run cleanly if needed
-- [ ] Every team member can explain the tag-overlap matching decision without notes
+Rural healthcare social signals are clustered, a citizen report joins the same Master Challenge, government verifies it, Smart Router recommends a university and HealthTech partner, the university forms a team and submits a proposal, industry accepts a support role, the shared project progresses through pilot and deployment, and citizen feedback appears in government impact analytics.

@@ -35,8 +35,8 @@ Every member is assigned to exactly one of these four branches for their current
 
 | Branch | Members assigned | Covers |
 |---|---|---|
-| `frontend` | _fill in_ | Next.js dashboards (citizen, university, industry, government), shared UI components |
-| `backend` | _fill in_ | FastAPI routers, data model, role selector, notifications, deployment |
+| `frontend` | _fill in_ | React/Vite portals (citizen, university, industry, government), shared UI components |
+| `backend` | _fill in_ | FastAPI API modules, data model, RBAC, notifications, deployment |
 | `ingestion` | _fill in_ | Citizen submission form/API, photo/file handling, Jharkhand district and block gazetteer |
 | `nlp-pipeline` | _fill in_ | BART zero-shot classification, sentence-transformers dedup, priority scoring, discipline-tag matching |
 
@@ -51,9 +51,9 @@ When a human says "push my changes" or "open a PR," the agent must resolve the t
 1. If the human names the branch explicitly ("push to backend"), use that.
 2. If the human doesn't name it, infer from the files changed in `git status` / `git diff --name-only`:
    - Changes under `frontend/` → `frontend`
-   - Changes under `backend/app/routers/`, `backend/app/models/`, `backend/app/core/` → `backend`
-   - Changes under `backend/app/pipeline/` (intake-adjacent: submission handling) or gazetteer/seed data for districts → `ingestion`
-   - Changes under `backend/app/pipeline/` (classification, dedup, scoring) or `backend/app/matching/` → `nlp-pipeline`
+  - Changes under `backend/api/`, `backend/db/`, or `backend/main.py` → `backend`
+  - Changes under `backend/ingestion/` or gazetteer/seed data for districts → `ingestion`
+  - Changes under `backend/pipeline/` → `nlp-pipeline`
 3. If the changed files span more than one module, or the mapping is ambiguous, stop and ask the human which branch this belongs on. Do not guess and push — a misfiled PR wastes a reviewer's time.
 4. If the human is not currently on the branch resolved in steps 1 to 3, check out that branch (creating it from `main` with `git fetch origin && git checkout -b <branch> origin/<branch>` if it doesn't exist locally) before making or staging any changes.
 

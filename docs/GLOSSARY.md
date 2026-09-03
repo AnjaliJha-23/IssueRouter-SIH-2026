@@ -1,65 +1,67 @@
-# Glossary — SIC Portal
+# Glossary - SIC Portal
 
-Alphabetical. If a term used in standup, code review, or the pitch isn't here, add it — this file exists so nobody has to ask "wait, what's a Proposal vs a Project again" twice.
+**AuditLog**  
+An immutable record of sensitive actions and state transitions, including verification, routing, approvals, project changes, support commitments, and closure.
 
----
+**Challenge**  
+The Master Societal Challenge: the canonical record of an underlying societal problem. It aggregates related evidence and carries location, domain, priority, confidence, trend, verification, routing, project, and impact state.
 
-**Challenge**
-A societal problem submitted by a citizen, community organization, PRI, ULB, or government department. The atomic unit the whole platform routes around. Has a description, district, optional photo, a classified `domain`, a `priority_score`, and a `status`.
+**Challenge Evidence / Signal**  
+A tweet, direct form submission, photo, video, document, NGO report, or official report linked to a Master Challenge. Evidence is an input item, not automatically an official verified challenge.
 
-**CSR Organization**
-Corporate Social Responsibility arm of an industry partner (e.g. Tata Steel Foundation, JSPL CSR — used as reference points for seed data). Functions the same as an `IndustryPartner` in the data model but flagged separately for reporting.
+**Collaboration**  
+The relationship between a shared project and an industry, startup, CSR, or research partner. Support may include mentorship, technology, funding/CSR, equipment, pilot support, deployment, or co-development.
 
-**Deduplication (Dedup)**
-The process of detecting that a newly submitted Challenge is semantically the same underlying issue as one already in the system, so it's merged/clustered rather than treated as a fresh, separately-routed problem. Implemented via `sentence-transformers` (`all-MiniLM-L6-v2`) embeddings + cosine similarity. Ported directly from IssueRouter.
+**Domain**  
+A thematic category assigned to challenge evidence and challenges, such as healthcare, education, water, environment, energy, urban development, accessibility, public administration, or rural livelihoods.
 
-**Discipline Tag**
-A label attached to a `University` describing an academic/research strength (e.g. "agriculture", "urban development", "energy"). Used as the basis for university matching. Not the same as `Domain` — a Domain describes a Challenge, a Discipline Tag describes a University's capability; matching compares the two.
+**Evidence Confidence**  
+A confidence measure based on report volume, consistency, location, media, timestamps, and verification signals.
 
-**Domain**
-One of the 10 thematic categories a Challenge is classified into: education, agriculture, healthcare, water resources, environment, energy, urban development, accessibility, public administration, rural livelihoods. Assigned by the AI Intake Layer via zero-shot classification.
+**Government Verification**  
+The human review step in which an authorized government user evaluates evidence and approves or rejects a candidate challenge.
 
-**Faculty**
-A university staff member who reviews Challenges routed to their institution and forms a `Team` around one they choose to pursue. Owns the Proposal on behalf of their institution.
+**Impact Analytics**  
+Outcome metrics, citizen/community feedback, affected population, geography, and project history used by government to assess results.
 
-**Government Analytics Layer**
-The dashboard and underlying aggregation logic that gives Government users a real-time, state-wide view: challenge volume, domain/district distribution, university and industry engagement, and pipeline progress. Read-only for this stakeholder — Government doesn't act on individual Challenges, it observes the system.
+**Industry / CSR Partner**  
+An industry, startup, MSME, research lab, or CSR organization that can respond to a collaboration opportunity and contribute support to a shared project.
 
-**Industry Partner**
-A startup, MSME, research lab, or CSR organization that browses open `Proposal`s and pledges support (funding, mentorship, or deployment help). Distinct from a `University` — industry partners don't originate Proposals, they back them.
+**IssueRouter AI Engine**  
+The intake intelligence layer that performs classification, location/topic extraction, deduplication, priority scoring, clustering, and canonical summarization.
 
-**IssueRouter**
-Team Convergence's prior project (3rd place, HNC 3.0): an AI-powered civic complaint triage system that classified, deduplicated, and prioritized citizen complaints from X (Twitter) and routed them to government departments. SIC Portal reuses its classification/dedup/prioritization engine directly. See `README.md §5` for exactly what's reused vs. new.
+**Master Societal Challenge**  
+The single source-of-truth problem record that links multiple evidence items and connects discovery to verification, routing, collaboration, project execution, and impact.
 
-**Notification**
-An in-app (not SMS/email — that's roadmapped, not built) alert that fires when something relevant happens to a stakeholder: a citizen's Challenge gets picked up, a university gets a new routed Challenge, an industry partner sees a new open Proposal.
+**Match**  
+A Smart Router recommendation connecting a challenge or project to an organization, person, department, or pilot location. A match includes score factors, explanation, and response status.
 
-**Pledge**
-An Industry Partner's commitment of support (funding, mentorship, deployment help) toward a specific Proposal. The mechanism through which the Industry Partnership Layer connects to a university's work.
+**Milestone**  
+A tracked project delivery stage with an owner, due date, status, and approval or rework state.
 
-**Priority Score**
-A numeric score assigned to a Challenge at intake, based on volume (how many similar/duplicate submissions exist) and severity signals. Determines how urgently it should be surfaced. Formula ported from IssueRouter, reweighted from "urgency + social reach" to "challenge volume + severity."
+**Organization Scope**  
+The tenancy boundary that limits users to their organization's records unless a public or authorized shared object permits access.
 
-**Project**
-What a `Proposal` becomes once it's accepted and moves into execution. Tracked through a single `status` field in the MVP (not full milestone management — that's a documented simplification): `submitted → team formed → prototype → testing → deployed`.
+**Priority Score**  
+A 0-100 score with factors and explanation describing challenge urgency and importance. It can consider severity, evidence volume, confidence, location, and trend.
 
-**Proposal**
-A solution write-up submitted by a university `Team` in response to a routed `Challenge`. What Industry Partners browse and pledge support toward. Becomes a `Project` once accepted.
+**Project Workspace**  
+One shared project object with role-based views for government, university, and industry. It includes overview, team, milestones, deliverables, prototype, testing, pilot, communication, impact, and governance.
 
-**Role Selector**
-The MVP's access-control mechanism: a simple choice of citizen / university / industry / government that determines which dashboard a user sees. Explicitly **not** production authentication — see `MVP_PLAN.md §4.4` for why this is a conscious scoping decision, not an oversight.
+**Proposal**  
+A solution plan submitted by a university team in response to a verified and routed challenge. An approved proposal can create a Project.
 
-**SIC Portal**
-Short name for the Societal Innovation Collaboration Portal — this project. Full name used in formal contexts (pitch deck title, problem statement references); "SIC Portal" used everywhere else including code and casual docs.
+**Role-Based Access Control (RBAC)**  
+Permission rules based on roles such as Citizen, Government, University Admin, Faculty, Student, Industry Admin, Industry Member/Mentor, and Project Member.
 
-**Tag Overlap Matching**
-The algorithm that routes a classified Challenge to a University: compare the Challenge's `Domain` against each University's `Discipline Tags`, propose the best-overlap match. Chosen over embedding-similarity matching specifically because it's explainable — see `ARCHITECTURE.md §4` for the full reasoning.
+**Semantic Clustering / Deduplication**  
+The process of using semantic similarity to identify duplicate or related evidence and link it to the same Master Challenge. All intake sources use one shared service.
 
-**Team**
-A group formed by a `Faculty` member at a university around a specific Challenge they've chosen to pursue. Produces a `Proposal`.
+**Smart Router**  
+The explainable, configurable matching engine that ranks government departments, universities, faculty/research groups, industry/CSR partners, and pilot locations using weighted deterministic scoring.
 
-**University**
-A Higher Education Institution in the seed data (e.g. BIT Mesra, IIT ISM Dhanbad, NIT Jamshedpur, Central University of Jharkhand, Vinoba Bhave University), tagged with `Discipline Tags`. The entity Challenges get routed to.
+**University Portal**  
+A shared organization-scoped portal where university users review matched challenges, accept or reject them, form teams, submit proposals, and manage projects.
 
-**Zero-shot Classification**
-A classification approach that requires no labeled training data for the target categories — the model (`facebook/bart-large-mnli`) classifies text against arbitrary candidate labels at inference time. Used because the timeline doesn't allow for building a labeled training set for the 10 new Domains.
+**Verification Status**  
+The challenge state: Candidate, Under Review, Verified, Rejected, or Closed.

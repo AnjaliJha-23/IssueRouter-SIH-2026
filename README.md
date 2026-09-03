@@ -1,145 +1,240 @@
 # SIC Portal — Societal Innovation Collaboration Portal
 
-**Smart India Hackathon 2026 · SIH26043 · Government of Jharkhand**
-**Team Convergence**
+**Smart India Hackathon 2026 · SIH26043 · Government of Jharkhand**  
+**Team Convergence**  
+**Hero Theme**: MedTech / BioTech / HealthTech
 
-> A platform that turns a citizen's local problem into a university-led, industry-backed project the government can track end to end.
+> **From Problem Discovery to Measurable Impact**: A unified societal challenge platform that turns multi-source citizen and social signals into verified, university-led, industry-backed innovation projects tracked end-to-end by the government.
 
 ---
 
-## 1. The Problem, in One Paragraph
+## 1. Executive Direction
 
-Jharkhand's citizens are the first to spot local problems in education, healthcare, agriculture, water, sanitation, environment, rural livelihoods, accessibility, and urban infrastructure — but there's no structured way for them to report a problem and have it reach the university or research group best equipped to solve it. Universities have the expertise. Industry and CSR bodies have the funding and deployment muscle. Nothing connects the three. SIC Portal is that connective layer.
+The **IssueRouter** concept is evolved, not discarded. Its core strength—discovering and semantically clustering public complaints and social signals (historically from Twitter/X) geographically and analytically—is preserved and extended. SIC Portal adds a structured intake channel for direct citizen and community submissions. 
 
-Full problem statement: `docs/PROBLEM_STATEMENT.pdf` (SIH26043, Theme: MedTech/BioTech/HealthTech, Deadline: 20 September 2026).
+**This is not two separate complaint systems.** It is one unified societal challenge platform:
+1. **Multi-Source Intake**: Ingests both Twitter/X public social signals and direct citizen web form submissions into a single pipeline.
+2. **Unified Semantic Clustering**: A shared deduplication and clustering engine ensures signals from any source merge into a single **Master Societal Challenge** rather than creating duplicative tickets.
+3. **Government Verification**: Authorized officials review candidate challenges, evaluate evidence confidence and trend metrics, and verify them.
+4. **Smart Router**: Our core differentiator. A multi-target, explainable, weighted deterministic scoring engine that matches challenges to Government Departments, Universities, Faculty/Research Groups, Industry/CSR Partners, and Pilot Locations.
+5. **Collaborative Innovation**: Universities submit solution proposals and assemble multidisciplinary teams; Industry/CSR partners pledge mentorship, technology, funding, or pilot support.
+6. **Shared Project Workspace**: Government, universities, and industry collaborate in one unified workspace with role-based views through prototype, testing, pilot deployment, and community impact measurement.
 
-## 2. Our Approach in One Paragraph
+*Source of Truth Blueprint*: [IssueRouter_SIH_Final_Implementation_Blueprint.md](IssueRouter_SIH_Final_Implementation_Blueprint.md)
 
-We are not starting from zero. Our team previously built **IssueRouter** (3rd place, HNC 3.0) — an AI pipeline that classified, deduplicated, and prioritized citizen complaints scraped from X and routed them to government departments. It solved the "structure the input" third of this problem. SIC Portal keeps IssueRouter's classification, deduplication, and prioritization engine, and builds the two-thirds that never existed: university matching and team formation, and industry/CSR partnership. Think of it as **reused engine, new body** — not a rewrite, not a light patch.
+---
 
-Full reasoning and scope: [`docs/MVP_PLAN.md`](docs/MVP_PLAN.md) (source of truth for this build — read it before `docs/ARCHITECTURE.md` or `docs/ROADMAP.md`).
+## 2. Core Principles & Architecture Decisions
 
-## 3. The Four Stakeholders
-
-| Stakeholder | What they do on the platform |
+| Principle | Decision |
 |---|---|
-| **Citizen** | Submits a challenge (description, district, optional photo). No need to know the right category or department. |
-| **University** | Sees challenges routed to them, forms a project team, submits a solution proposal. |
-| **Industry / CSR** | Browses open proposals across all universities, pledges funding/mentorship/deployment support. |
-| **Government** | Views a real-time dashboard of the whole pipeline — volume, domain/district spread, engagement, project progress. |
+| **Intake** | Twitter/X public signals + direct citizen web forms + future NGO/Panchayat/Govt intake |
+| **Clustering** | One unified semantic clustering and deduplication layer across all sources |
+| **Source of Truth** | **One Master Societal Challenge** per underlying problem; multiple Evidence items link to it |
+| **Dashboards** | Role-based and organization-scoped portals on a shared application codebase, not separate apps |
+| **University Model** | One University Portal; each institution sees its own matched challenges, faculty, and proposals |
+| **Industry Model** | One Industry Portal; companies discover relevant collaboration opportunities and track pledges |
+| **Collaboration** | One shared **Innovation Project Workspace** with role-based permissions |
+| **AI Stance** | Assistive, explainable, human-reviewable; deterministic scoring over opaque black boxes |
+| **SIH Focus** | Explainable Smart Router + multi-source discovery + HealthTech hero use cases + measurable impact |
 
-See [`docs/GLOSSARY.md`](docs/GLOSSARY.md) for precise definitions of every entity and term used across the codebase and this doc set.
+---
 
-## 4. System at a Glance
+## 3. System Architecture & End-to-End Flow
 
 ```
-Citizen submits ──▶ AI Intake Layer ──▶ University Matching ──▶ University forms team,
-  (web form)         (classify,           (discipline tag         submits proposal
-                       dedup, score)        overlap)                   │
-                                                                        ▼
-                                                          Industry pledges support
-                                                                        │
-                                                                        ▼
-                                              Project status: submitted → team formed →
-                                                  prototype → testing → deployed
-                                                                        │
-                                                                        ▼
-                                          Government dashboard aggregates everything
-                                          Notifications fire to relevant stakeholders throughout
+   ┌───────────────────────┐        ┌─────────────────────────────┐
+   │ Twitter/X Signals     │        │ Direct Citizen Submission   │
+   │ (Discovery/Scraped)   │        │ (Web Form + Geo + Media)    │
+   └──────────┬────────────┘        └──────────────┬──────────────┘
+              │                                    │
+              └──────────────────┬─────────────────┘
+                                 ▼
+         ┌─────────────────────────────────────────────────┐
+         │       Unified Ingestion & Normalization         │
+         │ (BART Zero-Shot Classifier + spaCy Geo Gazette) │
+         └───────────────────────┬─────────────────────────┘
+                                 ▼
+         ┌─────────────────────────────────────────────────┐
+         │ Semantic Clustering & Deduplication (MiniLM-L6) │
+         │   Maps incoming evidence to Master Challenges   │
+         └───────────────────────┬─────────────────────────┘
+                                 ▼
+         ┌─────────────────────────────────────────────────┐
+         │           Master Societal Challenge             │
+         │  (Priority Score, Evidence Confidence, Trend)   │
+         └───────────────────────┬─────────────────────────┘
+                                 ▼
+         ┌─────────────────────────────────────────────────┐
+         │   Government Command Center: Review & Verify    │
+         └───────────────────────┬─────────────────────────┘
+                                 ▼
+         ┌─────────────────────────────────────────────────┐
+         │         Explainable Smart Router Match          │
+         │ • Dept  • University  • Faculty  • Industry/CSR │
+         └───────────────────────┬─────────────────────────┘
+                                 ▼
+         ┌─────────────────────────────────────────────────┐
+         │   University Accept ──▶ Proposal & Team Formed  │
+         │   Industry Accept   ──▶ Support Pledged (Tech)  │
+         └───────────────────────┬─────────────────────────┘
+                                 ▼
+         ┌─────────────────────────────────────────────────┐
+         │      Shared Innovation Project Workspace        │
+         │ Milestones ──▶ Prototype ──▶ Testing ──▶ Pilot  │
+         └───────────────────────┬─────────────────────────┘
+                                 ▼
+         ┌─────────────────────────────────────────────────┐
+         │     Citizen Feedback & Verified Impact KPIs     │
+         └─────────────────────────────────────────────────┘
 ```
 
-Full data model and component breakdown: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+---
 
-## 5. Tech Stack
+## 4. Stakeholder Portals
 
-Reused directly from IssueRouter (proven, don't re-risk it):
+Rather than fragmented codebases, the system delivers tailored, organization-scoped experiences:
 
-- **Classification**: `facebook/bart-large-mnli` zero-shot classification, retagged to 10 thematic domains
-- **Location extraction**: spaCy + custom EntityRuler, gazetteer rebuilt for Jharkhand districts/blocks
-- **Deduplication**: `sentence-transformers` (`all-MiniLM-L6-v2`) + cosine similarity
-- **Prioritization**: IssueRouter's weighted scoring formula, reweighted for challenge volume + severity
-- **Backend pattern**: FastAPI + SQLAlchemy
+| Actor / Portal | Primary Capabilities |
+|---|---|
+| **Citizen**<br>*(Citizen Portal)* | Submit societal challenges with district/block, description, and photos; view submitted reports; track project progress and provide community validation feedback. |
+| **Government**<br>*(Command Center)* | Triage incoming challenges with real-time KPIs; review evidence breakdown and AI rationale; verify challenges; execute Smart Routing; track statewide project progress and impact. |
+| **University**<br>*(University Portal)* | View incoming matched challenges with transparent match reasons; accept/decline; form multidisciplinary faculty/student teams; submit solution proposals. |
+| **Industry / CSR**<br>*(Industry Portal)* | Discover high-relevance collaboration opportunities; pledge mentorship, technology, funding/CSR, equipment, pilot support, or co-development. |
+| **Shared Collaboration**<br>*(Innovation Workspace)* | Multi-stakeholder project workspace covering Overview, Team, Milestones, Deliverables, Prototype, Testing, Pilot, Communication, Impact, and Governance. |
 
-New for this build:
+---
 
-- **Frontend**: Next.js (four role-scoped dashboards: citizen, university, industry, government)
-- **University matching**: discipline tag overlap (not embedding similarity — see [`docs/ARCHITECTURE.md §4`](docs/ARCHITECTURE.md) for why)
-- **Data model**: `Challenge`, `University`, `Faculty`, `IndustryPartner`, `Team`, `Proposal`, `Project`, `Notification`
-- **Notifications**: lightweight in-app only (no SMS/email — roadmapped, not built)
+## 5. Smart Router — Core Differentiator
 
-## 6. Repo Structure (proposed)
+The Smart Router does not merely assign a category; it finds the optimal ecosystem participants and explains **why** they are a match.
+
+It evaluates 5 targets using transparent, weighted deterministic scoring:
+- **Government Department**: Domain, jurisdiction, severity, location, department mandate.
+- **University**: Domain expertise (40%), location relevance (20%), capacity (20%), relevant past performance (20%).
+- **Faculty / Research Group**: Academic specialization, availability/capacity, research areas, and relevant labs.
+- **Industry / Startup / CSR**: Technology capability, domain alignment, CSR focus, funding capacity, and implementation presence.
+- **Pilot Location**: Geographic need, infrastructure readiness, population density, and challenge severity.
+
+---
+
+## 6. Tech Stack
+
+### Frontend
+- **Framework**: React 19 SPA built with Vite
+- **Routing**: React Router v7
+- **Styling**: Tailwind CSS v4
+- **State Management**: React Context (`IssueContext`, `AuthContext`, `ThemeContext`)
+- **Visualizations & Maps**: Recharts, Leaflet with custom GIS layers
+- **Key Views**: `GovDashboard` (Command Center), `CitizenDashboard`, `OrgDashboard`, `ProjectWorkspace`, `Maps`, `Progress`
+
+### Backend
+- **Framework**: FastAPI (Python 3.10+)
+- **Database**: SQLite / PostgreSQL via SQLAlchemy ORM
+- **Validation**: Pydantic v2 schemas
+- **Architecture**: Modular routers (`challenges`, `smart_router`, `stats`, `auth`)
+
+### AI & NLP Pipeline
+- **Zero-Shot Classification**: `facebook/bart-large-mnli` tuned across 10 societal domains
+- **Location Extraction**: spaCy with custom EntityRuler and Jharkhand gazetteer (districts and blocks)
+- **Semantic Deduplication**: `sentence-transformers` (`all-MiniLM-L6-v2`) cosine similarity clustering
+- **Summarization & Insights**: Fast LLM inference (Groq / Hugging Face) for canonical challenge synthesis
+- **Scoring**: Weighted multi-factor deterministic algorithms for priority and routing
+
+---
+
+## 7. Repository Structure
 
 ```
 sic-portal/
 ├── backend/
-│   ├── app/
-│   │   ├── models/          # SQLAlchemy models (Challenge, University, Team, Proposal, Project, ...)
-│   │   ├── routers/         # FastAPI routers, one per stakeholder-facing API surface
-│   │   ├── pipeline/        # classification, dedup, priority scoring (ported from IssueRouter)
-│   │   ├── matching/        # university tag-overlap matcher
-│   │   └── core/            # config, db session, notification dispatch
-│   ├── seed/                # Jharkhand universities, districts/blocks gazetteer, industry partners
-│   └── tests/
+│   ├── api/                 # FastAPI router endpoints (challenges, smart_router, stats)
+│   ├── cache/               # Caching layer for fast response times
+│   ├── db/                  # SQLAlchemy models, schemas, and database session
+│   ├── ingestion/           # Twitter/X scraper adapter + citizen intake handlers
+│   ├── pipeline/            # AI classification, deduplication, scoring, summarization
+│   ├── issueRouter.db       # SQLite local database instance
+│   ├── main.py              # Application entrypoint & CORS middleware
+│   ├── requirements.txt     # Python dependencies
+│   ├── seed_mock_data.py    # Seed generator for Jharkhand institutions & challenges
+│   └── test_pipeline.py     # End-to-end pipeline test suite
 ├── frontend/
-│   └── src/
-│       ├── app/citizen/
-│       ├── app/university/
-│       ├── app/industry/
-│       └── app/government/
+│   ├── public/              # Static assets and icons
+│   ├── src/
+│   │   ├── api/             # API client and endpoints integration
+│   │   ├── components/      # UI components (ChallengeCard, FilterBar, RoutingModal, Drawer)
+│   │   ├── context/         # Auth, Issue, and Theme context providers
+│   │   ├── data/            # Static Jharkhand geography, mock organizations, seed definitions
+│   │   ├── pages/           # GovDashboard, CitizenDashboard, OrgDashboard, Maps, Progress
+│   │   ├── App.jsx          # Route declarations
+│   │   └── main.jsx         # React root
+│   ├── package.json         # Node.js dependencies (React 19, Vite, Tailwind CSS v4)
+│   └── vite.config.js       # Vite build configuration
 ├── docs/
-│   ├── PROBLEM_STATEMENT.pdf
-│   ├── GLOSSARY.md
-│   ├── ROADMAP.md
-│   ├── ARCHITECTURE.md
-│   ├── CONTRIBUTING.md
-│   └── MVP_PLAN.md
-├── AGENTS.md
-└── README.md
+│   ├── ARCHITECTURE.md      # Detailed system architecture, data models, and Smart Router
+│   ├── MVP_PLAN.md          # Master product plan, scoping, and stakeholder flows
+│   ├── GLOSSARY.md          # Definitions of all entities, fields, and terms
+│   ├── ROADMAP.md           # 9-stage build plan, milestones, and Definition of Done
+│   ├── CONTRIBUTING.md      # Team git workflow, module branches, and review rules
+│   └── (shared project documentation is listed below)
+├── AGENTS.md                # GitHub workflow and agent operating manual
+└── README.md                # Project overview and entry point
 ```
 
-Adjust to match whatever the team actually scaffolds — this is a proposal, not a contract.
+---
 
-## 7. Getting Started
+## 8. Getting Started
 
-> Fill in exact versions/commands once the repo is scaffolded. Placeholder shape below.
+### Prerequisites
+- Python 3.10+
+- Node.js 18+ & npm
+- Git
 
+### Backend Setup
 ```bash
-# Backend
 cd backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+python -m venv venv
+# Windows:
+.\venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
 
-# Frontend
+pip install -r requirements.txt
+python seed_mock_data.py
+uvicorn main:app --reload --port 8000
+```
+
+### Frontend Setup
+```bash
 cd frontend
 npm install
 npm run dev
 ```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-Environment variables needed (create `backend/.env`):
+---
 
-```
-DATABASE_URL=
-HF_MODEL_CACHE_DIR=        # for bart-large-mnli, all-MiniLM-L6-v2
-```
+## 9. Hero Demonstration Strategy (HealthTech Focus)
 
-## 8. What's Actually Built vs. What's Scoped Out
+To highlight the SIH MedTech/BioTech/HealthTech theme, SIC Portal features three end-to-end Jharkhand scenarios:
+1. **Rural Telemedicine Access**: Discovery of access barriers in remote blocks -> AI clustering -> Verification -> Smart Routing to RIMS Ranchi + HealthTech industry partner -> Project formation -> Pilot deployment -> Community feedback.
+2. **Primary Health Center (PHC) Diagnostic Gaps**: Multi-source social + direct complaints clustered into an urgent regional challenge -> Smart Routing to biomedical engineering university + CSR diagnostic lab.
+3. **Waterborne Disease Early Signal**: Social signals and citizen water quality reports clustered into an emerging outbreak alert -> Accelerated routing to Public Health Dept + BIT Mesra Environmental Lab.
 
-This is a genuine MVP, not a demo of everything the problem statement mentions. See [`docs/MVP_PLAN.md §4.6`](docs/MVP_PLAN.md) and [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full three-tier breakdown (fully built / simplified for demo / roadmapped-not-built). The short version: no production auth, no multilingual support, no real payments, no production file storage — all deliberate, all defensible under questioning.
+---
 
-## 9. Document Map
+## 10. Document Map
 
-| Doc | What's in it | Read it when |
+| Document | Purpose | Read When |
 |---|---|---|
-| [`docs/MVP_PLAN.md`](docs/MVP_PLAN.md) | Source-of-truth plan, reasoning, scoping decisions | Before touching anything else |
-| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | Every entity, term, and acronym used in this project | You're unsure what a term means in code review or standup |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Data model, component design, matching algorithm detail | You're building or reviewing a new module |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Day-by-day build plan, milestones, demo-day checklist | You're planning your week or checking if we're on schedule |
-| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | Branching, commits, code review, task ownership | You're about to open a PR |
+| [IssueRouter_SIH_Final_Implementation_Blueprint.md](IssueRouter_SIH_Final_Implementation_Blueprint.md) | **Single Source of Truth** for architecture, workflow, and specs | Grounding high-level design decisions |
+| [docs/MVP_PLAN.md](docs/MVP_PLAN.md) | MVP workflow, scope, state model, and Definition of Done | Understanding requirements and MVP boundaries |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical architecture, data model, Smart Router, and APIs | Implementing backend and frontend modules |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Authoritative terms, entities, and statuses | Aligning code, PRs, and product language |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Workflow implementation phases and demo milestones | Checking progress and exit criteria |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Git workflow, module branches, and review rules | Preparing commits and pull requests |
+| [AGENTS.md](AGENTS.md) | GitHub workflow operating manual | Running git operations, branching, and reviews |
 
-## 10. Team Convergence
+---
 
-- **Hackathon**: Smart India Hackathon 2026
-- **Problem statement**: SIH26043, Government of Jharkhand
-- **Prize**: ₹1,00,000
-- **Submission deadline**: 20 September 2026, via sih.gov.in
+*Team Convergence · SIH 2026 · Problem Statement SIH26043*

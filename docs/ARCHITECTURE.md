@@ -1,122 +1,145 @@
-# Architecture — SIC Portal
+# Architecture - SIC Portal
 
-This doc covers the data model, the reused-vs-new component split, and the reasoning behind the one design decision worth defending under questioning: how challenges get matched to universities. Read `MVP_PLAN.md` first — this doc goes one level deeper into implementation, it doesn't re-argue the scoping.
+This document is the technical companion to `IssueRouter_SIH_Final_Implementation_Blueprint.md`. The blueprint defines the product contract; this document maps that contract to the repository's implementation boundaries.
 
----
+## 1. Architectural Principle
 
-## 1. Layered View
+IssueRouter evolves into one societal challenge platform. Twitter/X signals, direct citizen submissions, and future NGO, Panchayat, ULB, or government inputs enter the same normalization, AI analysis, semantic grouping, and evidence pipeline. A **Master Societal Challenge** is the source of truth; each tweet, form, photo, video, document, or official report is linked evidence.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Citizen Layer          — submission web form                │
-├─────────────────────────────────────────────────────────────┤
-│  AI Intake Layer        — classify · dedup · prioritize      │  ← reused from IssueRouter
-├─────────────────────────────────────────────────────────────┤
-│  University Matching &  — tag-overlap match · team formation │  ← new
-│  Collaboration Layer      · proposal submission               │
-├─────────────────────────────────────────────────────────────┤
-│  Industry Partnership   — browse proposals · pledge support  │  ← new
-│  Layer                                                        │
-├─────────────────────────────────────────────────────────────┤
-│  Government Analytics   — aggregate dashboard, read-only     │  ← new
-│  Layer                                                        │
-├─────────────────────────────────────────────────────────────┤
-│  Notification Layer     — in-app alerts across all roles     │  ← new
-└─────────────────────────────────────────────────────────────┘
-```
+The application uses shared role- and organization-scoped portals. It does not create a separate dashboard or database for every university or company, and it does not create isolated copies of a project for each stakeholder.
 
-Each layer maps roughly to a router module in `backend/app/routers/` and a route group in `frontend/src/app/`.
+## 2. Layered View
 
-## 2. Data Model
-
-Core entities and their relationships. See `GLOSSARY.md` for what each one means conceptually.
-
-```
-Challenge
-├── id, description, district, block, photo_url (optional)
-├── domain            (assigned by AI Intake Layer, one of 10 thematic domains)
-├── priority_score     (assigned by AI Intake Layer)
-├── duplicate_of        (nullable FK → Challenge, set by dedup step)
-├── status             (submitted → routed → team_formed → in_progress → resolved)
-└── routed_university_id (FK → University, nullable until matched)
-
-University
-├── id, name, location
-└── discipline_tags[]   (e.g. ["agriculture", "rural_livelihoods"])
-
-Faculty
-├── id, name, university_id (FK → University)
-
-Team
-├── id, challenge_id (FK → Challenge), lead_faculty_id (FK → Faculty)
-└── members[]            (Faculty and/or student records — keep loose in MVP)
-
-Proposal
-├── id, team_id (FK → Team), challenge_id (FK → Challenge)
-├── summary, submitted_at
-└── status               (open → pledged → accepted)
-
-IndustryPartner
-├── id, name, type        (startup / MSME / research_lab / CSR)
-
-Pledge
-├── id, proposal_id (FK → Proposal), industry_partner_id (FK → IndustryPartner)
-└── support_type          (funding / mentorship / deployment)
-
-Project
-├── id, proposal_id (FK → Proposal, 1:1 once accepted)
-└── status                (submitted → team_formed → prototype → testing → deployed)
-
-Notification
-├── id, recipient_role, recipient_id, message, read_at (nullable)
+```text
+Intake sources
+  Twitter/X | Citizen form | NGO/community | Panchayat/ULB/government
+	|
+Unified ingestion and normalization
+	|
+AI classification, location/topic extraction, priority, confidence, trend
+	|
+Semantic similarity, duplicate detection, and clustering
+	|
+Master Societal Challenge + linked evidence
+	|
+Government verification and challenge intelligence
+	|
+Explainable Smart Router
+  department | university | faculty/research group | industry/CSR | pilot location
+	|
+University proposal/team + industry collaboration
+	|
+One shared Innovation Project Workspace
+  milestones | prototype | testing | pilot | deployment | impact
 ```
 
-This replaces IssueRouter's old schema (`RawTweet`, `Complaint`, `Cluster`, `Action`), which was built for a single officer consuming a single stream. This schema is built for four independent stakeholder types sharing one pipeline — each gets a filtered view into the same underlying data, not a separate database.
+## 3. Repository Ownership Map
 
-## 3. Reused vs. New — Component Map
+| Boundary | Repository surface | Blueprint responsibility |
+| --- | --- | --- |
+| API entrypoint | `backend/main.py` | FastAPI application and middleware |
+| API modules | `backend/api/` | Auth, challenges, Smart Router, projects, actions, stats |
+| Persistence | `backend/db/` | SQLAlchemy models, schemas, and database session |
+| Intake | `backend/ingestion/` | Twitter/X adapter, replay data, and normalized evidence intake |
+| AI pipeline | `backend/pipeline/` | Classification, NER, clustering, summarization, urgency/priority |
+| Frontend shell | `frontend/src/App.jsx`, `frontend/src/components/layout/` | Shared role-based application layout and navigation |
+| Frontend views | `frontend/src/pages/` | Government, citizen, organization, project, analytics, maps, progress |
+| Frontend data/API | `frontend/src/api/`, `frontend/src/data/`, `frontend/src/context/` | API access, seeded demo data, and shared state |
 
-| Component | Status | Source |
-|---|---|---|
-| Zero-shot classification (BART) | Reused, retagged | IssueRouter — 7 categories → 10 domains |
-| Location extraction (spaCy EntityRuler) | Reused, regazetteered | IssueRouter — Delhi locality list → Jharkhand districts/blocks |
-| Deduplication (sentence-transformers + cosine sim) | Reused as-is | IssueRouter |
-| Priority scoring | Reused, reweighted | IssueRouter — urgency+social-reach → volume+severity |
-| Backend pattern (FastAPI + SQLAlchemy) | Reused | IssueRouter |
-| University matching | **New** | Discipline tag overlap (see §4) |
-| Team formation / Proposal flow | **New** | — |
-| Industry partnership / Pledge flow | **New** | — |
-| Project lifecycle status | **New**, simplified | Single status field, not full milestone tracking |
-| Government analytics dashboard | **New** | Aggregation queries over shared schema |
-| Notification system | **New**, simplified | In-app only, no SMS/email |
-| Role-based access | **New**, simplified | Role selector, not production auth |
+## 4. Conceptual Data Model
 
-The point of this table: don't spend engineering time re-risking the row that's already reused. Spend it on the "New" rows — that's where the problem statement actually lives and where judges will probe.
+The model should preserve current SQLAlchemy concepts where practical and add only the entities needed for the demonstrable lifecycle.
 
-## 4. Why Tag Overlap, Not Embedding Similarity, for University Matching
+| Entity | Key relationships / role |
+| --- | --- |
+| User | Belongs to an organization; has a role; owns or submits records |
+| Organization | Government, University, Industry, CSR, or Research/NGO |
+| UniversityProfile | Institution expertise, departments, capabilities, and capacity |
+| FacultyProfile | Specializations, research areas, and availability |
+| IndustryProfile | Technology, domain, CSR focus, funding, and implementation capability |
+| Challenge | Master societal problem and lifecycle state |
+| ChallengeEvidence | Tweet, form, media, or official report linked to a challenge |
+| ChallengeAnalysis | Domain, tags, priority, confidence, trend, and model/version |
+| ChallengeRelation | Duplicate, related, or merged relationships |
+| Match | Challenge/project to organization/person, with score, explanation, and status |
+| Proposal | University solution proposal |
+| Project | Approved execution unit derived from a challenge and proposal |
+| ProjectMember | Users participating with a project role |
+| Milestone | Tracked project delivery stage |
+| Deliverable | Files, links, or evidence associated with a milestone |
+| Collaboration | Industry/CSR involvement and support type |
+| Funding | Optional MVP record of pledged or approved support |
+| Pilot | Deployment location and period |
+| ImpactMetric | Measured social or operational outcome |
+| CitizenFeedback | Post-pilot community validation |
+| Notification | Workflow communication |
+| AuditLog | Immutable record of sensitive actions |
 
-This is the one architectural decision worth being able to defend in one breath:
+## 5. Challenge and Project States
 
-**Embedding similarity** (e.g. embed challenge description + embed university research abstracts, compare vectors) is more sophisticated, but produces a similarity score nobody in the room — including the team — can intuitively verify. If a judge asks "why was this challenge routed to BIT Mesra and not NIT Jamshedpur," the honest answer with embeddings is "the vectors were closer," which isn't an answer.
+| Entity | Recommended states |
+| --- | --- |
+| Evidence/Signal | Received -> Normalized -> Linked/Clustered -> Archived |
+| Challenge | Candidate -> Under Review -> Verified -> Rejected -> Closed |
+| Routing | Not Routed -> Recommendations Ready -> Invited -> Accepted / Rejected |
+| Proposal | Draft -> Submitted -> Under Review -> Approved / Rework / Rejected |
+| Project | Planned -> Active -> Prototype -> Testing -> Pilot -> Deployed -> Impact Validation -> Closed |
+| Milestone | Pending -> In Progress -> Submitted -> Approved / Rework -> Completed |
 
-**Tag overlap** (challenge's classified domain vs. each university's discipline tags, best-overlap wins) is:
-- **Fast to build** — no embedding infrastructure needed for this step, just a set-intersection query
-- **Explainable** — the answer to "why this university" is always "it's tagged for `[domain]`, here's the tag," which a judge can verify by eye
-- **Consistent with the rest of the intake pipeline** — the domain classification step already produces a clean categorical label; tag overlap uses it directly instead of throwing it away and re-embedding
+Every transition is permission controlled and recorded in `AuditLog`.
 
-The tradeoff, stated honestly: tag overlap can't capture nuance a good embedding match might (a university strong in "water resources" research that also happens to be relevant to a "sanitation" challenge, for instance). That's a fair critique to expect and a fair one to concede — the mitigation is that discipline tags can be multi-valued and reasonably granular in the seed data, which covers most of the gap without the explainability cost.
+## 6. AI and Smart Router
 
-## 5. API Surface (proposed — fill in as routers are built)
+The AI layer is assistive and human-reviewable:
 
-| Route group | Stakeholder | Core endpoints |
-|---|---|---|
-| `/challenges` | Citizen, AI Intake | `POST /challenges` (submit), `GET /challenges/{id}` |
-| `/university` | University | `GET /university/{id}/challenges`, `POST /teams`, `POST /proposals` |
-| `/industry` | Industry | `GET /proposals?status=open`, `POST /pledges` |
-| `/government` | Government | `GET /analytics/summary`, `GET /analytics/by-domain`, `GET /analytics/by-district` |
-| `/notifications` | All | `GET /notifications?recipient=`, `POST /notifications/{id}/read` |
+- Classification produces domain, subdomain, and tags.
+- Priority produces a 0-100 score with factors and an explanation.
+- Semantic similarity flags probable duplicates and related challenges.
+- Summarization maintains the canonical challenge summary.
+- AI-derived attributes assist routing, but final matches use transparent deterministic scoring.
+- Reviewers can override AI-derived classifications, priorities, deduplication decisions, and recommendations.
 
-Keep this table updated as the actual FastAPI routers land — it should never drift more than a day behind the code.
+The Smart Router ranks government departments, universities, faculty/research groups, industry/startups/CSR partners, and pilot locations. Its weights are configurable. The example university score is 40% domain/expertise match, 20% location relevance, 20% capacity, and 20% relevant past performance. Every result stores its score breakdown and a human-readable reason.
 
-## 6. Deployment Shape for the Demo
+## 7. Reuse Plan
 
-No production infra needed. A single deployed instance (backend + Postgres + frontend) is enough — this is a hackathon MVP being demoed live, not a service under real load. Prioritize a stable, reproducible local/staging environment over any cloud polish that doesn't change what a judge sees.
+| Area | Change label | Direction |
+| --- | --- | --- |
+| Existing ingestion and replay | EXTEND | Support social signals and direct citizen evidence through one normalized path |
+| Classification | EXTEND | Retarget categories to societal domains |
+| Location extraction | EXTEND | Use the Jharkhand district/block gazetteer |
+| Clustering and deduplication | EXTEND | Link all source types to one Master Challenge |
+| Priority and trend | MODIFY | Include severity, evidence confidence, volume, and timestamps |
+| Existing frontend/layout | MODIFY | Preserve useful IssueRouter surfaces and make them role-scoped |
+| Challenge/evidence model | REBUILD | Separate evidence items from the Master Societal Challenge |
+| Smart Router | REBUILD | Add multi-target, weighted, explainable matching |
+| University/industry collaboration | NEW | Profiles, matches, proposals, teams, and support |
+| Shared project workspace | NEW | Role-based project, milestone, deliverable, pilot, and impact views |
+| Governance | NEW | Verification, approvals, privacy/moderation, and audit trail |
+
+## 8. Target MVP API Surface
+
+| Area | Endpoints / purpose |
+| --- | --- |
+| Auth | `POST /api/auth/register`, `POST /api/auth/login`, current-user/profile |
+| Challenges | Create, list, detail, update, verify, and close |
+| Evidence | Add/list challenge evidence and moderation controls |
+| AI | Analyze a challenge and retrieve analysis |
+| Dedup/relations | Candidate relations, link, merge, or mark separate |
+| Routing | Generate recommendations and list challenge matches |
+| Matches | Accept, reject, or request information |
+| Universities | Profiles, expertise, capacity, and matched challenges |
+| Industry | Profiles, opportunities, and collaboration responses |
+| Projects | Create from approved proposal and manage project |
+| Milestones | Create, update, and approve |
+| Analytics | Challenge, routing, project, and impact summaries |
+| Notifications | List, read, and create workflow notifications |
+
+## 9. Trust and Deployment Constraints
+
+- Use JWT authentication and RBAC in the target architecture; government verification must remain separate from citizen submission permissions.
+- Scope data by organization unless a public or authorized shared object permits access.
+- Protect personal information, precise locations, and sensitive healthcare evidence.
+- Moderate user-generated evidence and uploads.
+- The demo must remain functional with seeded or replayed data if Twitter/X is unavailable.
+- Prefer a stable reproducible local/staging environment over production infrastructure that does not improve the SIH demonstration.

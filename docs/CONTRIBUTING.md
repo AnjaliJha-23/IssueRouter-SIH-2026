@@ -8,7 +8,7 @@ This is for the team, not external contributors. It exists so a 19-day sprint do
 
 - `main` — always demo-able. Nothing broken gets merged here.
 - `dev` — integration branch, where feature branches land first.
-- `feature/<module>-<short-desc>` — e.g. `feature/matching-tag-overlap`, `feature/university-dashboard`.
+- `feature/<module>-<short-desc>` — e.g. `feature/smart-router`, `feature/project-workspace`.
 
 Merge order: `feature/*` → `dev` (PR + at least one review) → `main` (only at phase checkpoints, per `ROADMAP.md`).
 
@@ -19,9 +19,9 @@ Keep them scoped and readable — future-you (or a judge skimming git history, w
 ```
 <module>: <what changed, imperative mood>
 
-feat(matching): implement tag-overlap scoring for university routing
+feat(nlp-pipeline): implement explainable Smart Router scoring
 fix(intake): correct dedup threshold causing false-positive merges
-docs(architecture): document tag-overlap decision rationale
+docs(architecture): document explainable Smart Router scoring rationale
 ```
 
 ## 3. Code Review
@@ -37,19 +37,19 @@ Assign one primary owner per module at Phase 0 (`ROADMAP.md`). Suggested split, 
 | Module | Covers |
 |---|---|
 | AI Intake | Classification, location extraction, dedup, priority scoring (porting from IssueRouter) |
-| Matching & University | Tag-overlap matcher, university dashboard, team/proposal flow |
-| Industry & Government | Industry dashboard, pledge flow, government analytics |
-| Platform | Data model, auth/role-selector, notifications, seed data, deployment |
-| Frontend | Shared UI components, four dashboards' visual layer |
+| Matching & University | Multi-target Smart Router, university portal, team/proposal flow |
+| Industry & Government | Industry portal, collaboration flow, government verification and analytics |
+| Platform | Data model, RBAC, audit log, notifications, seed data, deployment |
+| Frontend | Shared UI components, role-scoped portals, project workspace |
 
 One person can own more than one module in a small team — the table is about clarity of "who do I ask," not headcount.
 
 ## 5. Definition of Done (per feature)
 
 A feature is done when:
-- [ ] It works against the shared data model in `ARCHITECTURE.md §2` (not a local mock)
+- [ ] It works against the shared data model in `ARCHITECTURE.md` (not a local mock)
 - [ ] It's reachable from the actual UI, not just testable via API client
-- [ ] It's been walked through once against a real Jharkhand seed example, not a placeholder
+- [ ] It's been walked through once against a HealthTech-oriented Jharkhand seed example, not a placeholder
 - [ ] The relevant doc (`ARCHITECTURE.md`, `GLOSSARY.md`) is updated if it changes a decision or adds a term
 
 ## 6. Communication
