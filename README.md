@@ -49,7 +49,7 @@ The **IssueRouter** concept is evolved, not discarded. Its core strength—disco
    └──────────┬────────────┘        └──────────────┬──────────────┘
               │                                    │
               └──────────────────┬─────────────────┘
-                                 ▼
+                     ▼
          ┌─────────────────────────────────────────────────┐
          │       Unified Ingestion & Normalization         │
          │ (BART Zero-Shot Classifier + spaCy Geo Gazette) │
@@ -78,7 +78,7 @@ The **IssueRouter** concept is evolved, not discarded. Its core strength—disco
          │   University Accept ──▶ Proposal & Team Formed  │
          │   Industry Accept   ──▶ Support Pledged (Tech)  │
          └───────────────────────┬─────────────────────────┘
-                                 ▼
+                ▼
          ┌─────────────────────────────────────────────────┐
          │      Shared Innovation Project Workspace        │
          │ Milestones ──▶ Prototype ──▶ Testing ──▶ Pilot  │

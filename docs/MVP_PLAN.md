@@ -3,34 +3,74 @@
 This plan follows `IssueRouter_SIH_Final_Implementation_Blueprint.md` and the canonical workflow:
 
 ```text
-Citizen
-  Twitter/X / Direct Form
-        |
-        v
-IssueRouter AI Engine
-  Classification | Deduplication | Priority | Clustering
-        |
-        v
-Master Challenge
-        |
-        v
-Government Verification
-        |
-        v
-Smart Router
-  University | Industry | Government
-        |
-        v
-Collaboration -> Project Created
-        |
-        v
-University Team + Industry Partner
-        |
-        v
-Development -> Milestones -> Prototype -> Testing -> Pilot -> Deployment
-        |
-        v
-Citizen Feedback -> Impact Analytics -> Government
+CITIZEN
+                     │
+         Twitter/X / Direct Form
+                     │
+                     ▼
+            ┌────────────────┐
+            │ ISSUE ROUTER   │
+            │ AI ENGINE      │
+            └───────┬────────┘
+                    │
+          Classification
+          Deduplication
+          Priority
+          Clustering
+                    │
+                    ▼
+          MASTER CHALLENGE
+                    │
+                    ▼
+            GOV VERIFICATION
+                    │
+                    ▼
+             SMART ROUTER
+              /    |    \
+             /     |     \
+            ▼      ▼      ▼
+      University Industry  Govt
+            │       │
+            │       │
+            └───┬───┘
+                │
+                ▼
+          COLLABORATION
+                │
+                ▼
+          PROJECT CREATED
+                │
+          ┌─────┴──────┐
+          ▼            ▼
+      University     Industry
+        Team         Partner
+          │            │
+          └─────┬──────┘
+                ▼
+           DEVELOPMENT
+                │
+          Milestones
+                │
+                ▼
+            PROTOTYPE
+                │
+                ▼
+             TESTING
+                │
+                ▼
+              PILOT
+                │
+                ▼
+            DEPLOYMENT
+                │
+                ▼
+         CITIZEN FEEDBACK
+                │
+                ▼
+          IMPACT ANALYTICS
+                │
+                ▼
+            GOVERNMENT
 ```
 
 ## Product Definition
