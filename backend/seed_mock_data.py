@@ -101,10 +101,27 @@ def seed():
 
             prio = random.randint(*prio_range)
             comp_count = random.randint(*count_range)
+            
             reach = int(comp_count * random.uniform(2.0, 8.0))
             trend = random.choices(["up", "stable", "down"], weights=[40, 40, 20])[0]
-            status = random.choices(["pending", "verified", "matched", "in_project", "resolved"], weights=[30, 30, 10, 20, 10])[0]
+            status = random.choices(["pending_verification", "verified", "matches_suggested", "ready_for_routing", "routed", "in_project", "resolved"], weights=[20, 20, 10, 10, 15, 15, 10])[0]
             
+            # Create a realistic breakdown of evidence sources based on comp_count
+            social_count = int(comp_count * random.uniform(0.6, 0.9))
+            citizen_count = comp_count - social_count
+            ngo_count = random.randint(0, min(5, citizen_count)) if citizen_count > 0 else 0
+            citizen_count -= ngo_count
+            
+            source_counts = {
+                "social": social_count,
+                "citizen": citizen_count,
+                "ngo": ngo_count,
+                "government": random.randint(0, 1) if status != "pending_verification" else 0
+            }
+            
+            ai_confidence = round(random.uniform(0.75, 0.98), 2)
+            duplicate_risk = round(random.uniform(0.01, 0.15), 2)
+
             days_ago = random.randint(0, 14)
             c_at = now - timedelta(days=days_ago, hours=random.randint(0, 23))
 
@@ -117,13 +134,16 @@ def seed():
                 status=status,
                 priority_score=prio,
                 complaint_count=comp_count,
+                source_counts=source_counts,
+                ai_confidence=ai_confidence,
+                duplicate_risk=duplicate_risk,
                 rt_reach=reach,
                 trend=trend,
                 location=area,
                 lat=round(lat, 6),
                 lng=round(lng, 6),
                 created_by="user-cit-1",
-                verified=(status != "pending"),
+                verified=(status != "pending_verification"),
                 created_at=c_at
             ))
 

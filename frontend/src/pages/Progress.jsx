@@ -50,11 +50,11 @@ function formatDuration(ms) {
 }
 
 function StatusBadge({ status }) {
-    if (status === 'inprogress') {
+    if (status === 'routed' || status === 'in_project' || status === 'inprogress') {
         return (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                 <Wrench size={10} />
-                In Progress
+                {status === 'routed' ? 'Routed to Univ' : 'In Progress'}
             </span>
         )
     }
@@ -233,43 +233,60 @@ function AccountabilityPanel({ cluster, officer, timeLeft, dueAt, onResolve }) {
 }
 
 export default function Progress() {
-    const { issues, assignments, discarded, resolveIssue } = useIssues()
     const [expandedId, setExpandedId] = useState(null)
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
     const [now, setNow] = useState(() => Date.now())
+
+    const [challenges, setChallenges] = useState([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                // Fetch all challenges that are no longer in the active government queue
+                const res = await fetch('http://localhost:8000/api/challenges/');
+                if (res.ok) {
+                    const data = await res.json();
+                    // Filter for tracking statuses
+                    const tracking = data.filter(c => ['routed', 'in_project', 'resolved'].includes(c.status));
+                    setChallenges(tracking);
+                }
+            } catch(e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [])
 
     useEffect(() => {
         const timer = setInterval(() => setNow(Date.now()), 30_000)
         return () => clearInterval(timer)
     }, [])
 
-    const progressClusters = useMemo(() => {
-        const active = issues.filter(
-            (cluster) => (cluster.status === 'inprogress' || cluster.status === 'resolved') && !discarded.has(cluster.cluster_id)
-        )
-
-        return [...active].sort((a, b) => {
-            const aAssigned = assignments[a.cluster_id] ? 1 : 0
-            const bAssigned = assignments[b.cluster_id] ? 1 : 0
-            return bAssigned - aAssigned
-        })
-    }, [issues, assignments, discarded])
-
     const filtered = useMemo(() => {
-        return progressClusters.filter((cluster) => {
+        return challenges.filter((c) => {
+            const term = search.toLowerCase();
             const matchSearch =
                 !search ||
-                cluster.problem.toLowerCase().includes(search.toLowerCase()) ||
-                cluster.location.toLowerCase().includes(search.toLowerCase()) ||
-                cluster.department.toLowerCase().includes(search.toLowerCase())
-            const matchStatus = statusFilter === 'all' || cluster.status === statusFilter
-            return matchSearch && matchStatus
-        })
-    }, [progressClusters, search, statusFilter])
+                c.title.toLowerCase().includes(term) ||
+                c.location.toLowerCase().includes(term) ||
+                (c.department && c.department.toLowerCase().includes(term)) ||
+                c.id.toLowerCase().includes(term);
+                
+            const matchStatus = statusFilter === 'all' || 
+                (statusFilter === 'inprogress' && ['routed', 'in_project'].includes(c.status)) ||
+                (statusFilter === 'resolved' && c.status === 'resolved');
+                
+            return matchSearch && matchStatus;
+        }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }, [challenges, search, statusFilter])
 
-    const inprogressCount = progressClusters.filter((cluster) => cluster.status === 'inprogress').length
-    const resolvedCount = progressClusters.filter((cluster) => cluster.status === 'resolved').length
+    const inprogressCount = challenges.filter((c) => ['routed', 'in_project'].includes(c.status)).length
+    const resolvedCount = challenges.filter((c) => c.status === 'resolved').length
 
     return (
         <div className="space-y-5">
@@ -289,7 +306,7 @@ export default function Progress() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
-                    { label: 'Total Tracked', value: progressClusters.length, color: 'from-indigo-600 to-purple-500', icon: <Activity size={18} className="text-indigo-500" />, bg: 'bg-indigo-50 dark:bg-indigo-900/30' },
+                    { label: 'Total Tracked', value: challenges.length, color: 'from-indigo-600 to-purple-500', icon: <Activity size={18} className="text-indigo-500" />, bg: 'bg-indigo-50 dark:bg-indigo-900/30' },
                     { label: 'In Progress', value: inprogressCount, color: 'from-blue-600 to-indigo-500', icon: <Wrench size={18} className="text-blue-500" />, bg: 'bg-blue-50 dark:bg-blue-900/30' },
                     { label: 'Resolved', value: resolvedCount, color: 'from-emerald-600 to-green-500', icon: <CheckCircle2 size={18} className="text-emerald-500" />, bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
                 ].map(({ label, value, color, icon, bg }) => (
@@ -348,47 +365,48 @@ export default function Progress() {
                 ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
                         {filtered.map((cluster) => {
-                            const isExpanded = expandedId === cluster.cluster_id
-                            const officerObj = assignments[cluster.cluster_id]
-                            const officerName = officerObj ? officerObj.name : 'Unassigned'
-                            const hasOfficer = Boolean(officerObj)
+                            const isExpanded = expandedId === cluster.id
+                            
+                            // Mock assignments for UI since we don't have a real assignments table yet
+                            const hasOfficer = cluster.status === 'in_project' || cluster.status === 'resolved'
+                            const officerName = hasOfficer ? 'Nodal Officer (Univ)' : 'Unassigned'
                             const isResolved = cluster.status === 'resolved'
-                            const dueAt = officerObj?.dueAt || cluster.due_at
+                            const dueAt = cluster.due_at || new Date(new Date(cluster.created_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
                             const remainingMs = dueAt ? new Date(dueAt).getTime() - now : null
 
                             return (
-                                <div key={cluster.cluster_id} className={`transition-all ${hasOfficer ? 'ring-1 ring-indigo-200 dark:ring-indigo-800/50' : ''}`}>
+                                <div key={cluster.id} className={`transition-all ${hasOfficer ? 'ring-1 ring-indigo-200 dark:ring-indigo-800/50' : ''}`}>
                                     <div
                                         className="grid grid-cols-[2fr_1fr_1fr_1.2fr_1fr_40px] gap-4 px-5 py-4 items-center cursor-pointer hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors group"
-                                        onClick={() => setExpandedId((prev) => (prev === cluster.cluster_id ? null : cluster.cluster_id))}
+                                        onClick={() => setExpandedId((prev) => (prev === cluster.id ? null : cluster.id))}
                                     >
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <p className="text-[13px] font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">
-                                                    {cluster.problem}
+                                                    {cluster.title}
                                                 </p>
-                                                {hasOfficer && (
+                                                {hasOfficer && !isResolved && (
                                                     <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400">
                                                         Active
                                                     </span>
                                                 )}
                                             </div>
                                             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                                                {cluster.cluster_id} - {cluster.location}
+                                                {cluster.id} - {cluster.location}
                                             </p>
                                         </div>
 
                                         <div className="flex items-center gap-1.5">
                                             <Users size={12} className="text-gray-400 flex-shrink-0" />
                                             <span className="text-[13px] font-medium text-gray-700 dark:text-gray-300">
-                                                {cluster.complaint_count.toLocaleString()}
+                                                {cluster.complaint_count?.toLocaleString() || 0}
                                             </span>
                                         </div>
 
                                         <div className="flex items-center gap-1.5">
                                             <Building2 size={12} className="text-gray-400 flex-shrink-0" />
                                             <span className="text-[12px] text-gray-600 dark:text-gray-400 truncate">
-                                                {cluster.department}
+                                                {cluster.department || cluster.domain}
                                             </span>
                                         </div>
 
@@ -410,13 +428,13 @@ export default function Progress() {
 
                                     {isExpanded && (
                                         <div className="mx-5 mb-5 mt-1 rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/40 dark:bg-indigo-950/20 overflow-hidden animate-fade-in-up">
-                                            {officerObj && (
+                                            {hasOfficer && (
                                                 <div className="px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2">
                                                     <User size={12} className="text-indigo-500" />
                                                     <span className="text-[12px] text-indigo-700 dark:text-indigo-300">
-                                                        <span className="font-semibold">{officerObj.name}</span>
+                                                        <span className="font-semibold">{officerName}</span>
                                                         <span className="text-indigo-400 dark:text-indigo-500">
-                                                            {' '} - {officerObj.designation} - {officerObj.id}
+                                                            {' '} - Assigned Partner Team
                                                         </span>
                                                     </span>
                                                 </div>
@@ -443,7 +461,7 @@ export default function Progress() {
                                                             </p>
                                                         </div>
                                                         <p className="mt-2 text-[12px] text-gray-600 dark:text-gray-300 leading-relaxed">
-                                                            {cluster.summary}
+                                                            {cluster.description}
                                                         </p>
                                                         <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">
                                                             {isResolved
@@ -457,12 +475,13 @@ export default function Progress() {
                                                         </p>
                                                     </div>
 
+                                                    {/* Temporarily disabling the accountability panel button since we don't have the context method anymore */}
                                                     <AccountabilityPanel
                                                         cluster={cluster}
-                                                        officer={officerObj}
+                                                        officer={hasOfficer ? { name: officerName, designation: 'Partner Team', id: 'UNIV-XYZ' } : null}
                                                         timeLeft={formatDuration(remainingMs)}
                                                         dueAt={dueAt}
-                                                        onResolve={() => resolveIssue(cluster.cluster_id)}
+                                                        onResolve={() => alert("Marked resolved. API integration pending.")}
                                                     />
                                                 </div>
                                             </div>
