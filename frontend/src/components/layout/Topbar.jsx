@@ -1,24 +1,41 @@
 import { useState, useRef, useEffect } from 'react'
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation, Link, useNavigate } from 'react-router-dom'
 import { Search, User, Settings, LogOut, ChevronDown, Home } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 // Map each path to a readable label
 const PAGE_LABELS = {
     '/dashboard': 'Dashboard',
+    '/dashboard/gov': 'Government Dashboard',
+    '/dashboard/org': 'University Portal',
+    '/dashboard/industry': 'Industry CSR Portal',
+    '/dashboard/citizen': 'Citizen Dashboard',
     '/analytics': 'Analytics',
     '/maps': 'Maps',
     '/settings': 'Settings',
+    '/progress': 'Progress',
     '/profile': 'Profile',
     '/notifications': 'Notifications',
 }
 
 export default function Topbar({ onMenuClick }) {
     const { pathname } = useLocation()
+    const { user, logout } = useAuth()
+    const navigate = useNavigate()
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const [searchValue, setSearchValue] = useState('')
     const dropdownRef = useRef(null)
 
-    const pageLabel = PAGE_LABELS[pathname] ?? 'Page'
+    const pageLabel = PAGE_LABELS[pathname] ?? 'Dashboard'
+
+    const initials = user?.name
+        ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        : (user?.role ? user.role.slice(0, 2).toUpperCase() : 'U')
+
+    const handleLogout = () => {
+        logout()
+        navigate('/login')
+    }
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -102,16 +119,16 @@ export default function Topbar({ onMenuClick }) {
                 >
                     {/* Avatar circle */}
                     <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-[11px] font-medium text-white flex-shrink-0">
-                        AK
+                        {initials}
                     </div>
 
                     {/* Name + role — hidden on small screens */}
                     <div className="hidden sm:block text-left leading-tight">
                         <p className="text-[12px] font-medium text-gray-800 dark:text-gray-100">
-                            Arjun Kumar
+                            {user?.name || 'Authorized User'}
                         </p>
                         <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                            Super Admin
+                            {user?.role || 'Stakeholder'}
                         </p>
                     </div>
 
@@ -132,24 +149,16 @@ export default function Topbar({ onMenuClick }) {
           ">
                         {/* User info header */}
                         <div className="px-3.5 py-3 border-b border-gray-100 dark:border-gray-700">
-                            <p className="text-[13px] font-medium text-gray-800 dark:text-gray-100">
-                                Arjun Kumar
+                            <p className="text-[13px] font-medium text-gray-800 dark:text-gray-100 truncate">
+                                {user?.name || 'User'}
                             </p>
-                            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-                                arjun@adminkit.io
+                            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                                {user?.email || 'user@issuerouter.gov'}
                             </p>
                         </div>
 
                         {/* Menu items */}
                         <div className="py-1">
-                            <Link
-                                to="/profile"
-                                onClick={() => setDropdownOpen(false)}
-                                className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                            >
-                                <User size={14} />
-                                Profile
-                            </Link>
                             <Link
                                 to="/settings"
                                 onClick={() => setDropdownOpen(false)}
@@ -164,9 +173,9 @@ export default function Topbar({ onMenuClick }) {
                             <button
                                 onClick={() => {
                                     setDropdownOpen(false)
-                                    // wire up your logout logic here
+                                    handleLogout()
                                 }}
-                                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                             >
                                 <LogOut size={14} />
                                 Logout

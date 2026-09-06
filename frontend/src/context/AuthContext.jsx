@@ -7,30 +7,41 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [token, setToken] = useState(localStorage.getItem('token'))
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      return stored ? JSON.parse(stored) : null
+    } catch (e) {
+      return null
+    }
+  })
+  const [token, setToken] = useState(() => localStorage.getItem('token'))
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (token) {
-      // Fetch user profile
-      fetch('http://localhost:8000/api/auth/me?email=admin', { // For MVP, normally token decodes or backend infers
+      // Sync user profile in background
+      fetch('/api/auth/me?email=admin', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      .then(res => {
-          // As a shortcut for MVP, since we mocked the auth, we'll store user data directly in localStorage
-          const storedUser = localStorage.getItem('user')
-          if (storedUser) setUser(JSON.parse(storedUser))
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.name) {
+          setUser(prev => ({
+            ...prev,
+            ...data
+          }))
+        }
       })
-      .finally(() => setLoading(false))
-    } else {
-      setLoading(false)
+      .catch(() => {
+        // Keep existing localStorage user if offline
+      })
     }
   }, [token])
 
   const login = async (email, password) => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -40,11 +51,16 @@ export function AuthProvider({ children }) {
 
       const data = await response.json()
       
+      const fallbackName = email.includes('csr') ? 'CSR Head' : (email.includes('gov') ? 'Admin' : (email.includes('sharma') ? 'Dr. Sharma' : 'Rahul Kumar'))
+      const fallbackOrg = data.role === 'Industry' ? { name: 'Tata Steel CSR' } : (data.role === 'University' ? { name: 'RIMS Ranchi' } : { name: 'Jharkhand Health Dept' })
+
       const userData = {
         id: data.user_id,
+        name: data.name || fallbackName,
         email: email,
         role: data.role,
-        org_id: data.org_id
+        org_id: data.org_id,
+        organization: data.organization || fallbackOrg
       }
 
       localStorage.setItem('token', data.access_token)

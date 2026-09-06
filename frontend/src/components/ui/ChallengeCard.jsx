@@ -102,7 +102,7 @@ export default function ChallengeCard({ challenge, rank, expanded, onToggle, onV
                         </span>
                         <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-700">
                             <MapPin size={12} />
-                            {challenge.location.split(',')[0]}
+                            {(challenge.location || 'Jharkhand').split(',')[0]}
                         </span>
                     </div>
                 </div>

@@ -17,17 +17,21 @@ export default function OrgDashboard() {
   const fetchRoutedChallenges = async () => {
     try {
       // Mock: Getting all verified challenges and generating matches
-      const res = await fetch('http://localhost:8000/api/challenges/?verified=true')
-      if (res.ok) {
+      const res = await fetch('/api/challenges/?verified=true').catch(() => fetch('http://localhost:8000/api/challenges/?verified=true'))
+      if (res && res.ok) {
         const verified = await res.json()
         const myMatches = []
-        for (const c of verified) {
-          const mRes = await fetch(`http://localhost:8000/api/matches/generate/${c.id}`, { method: 'POST' })
-          if (mRes.ok) {
-            const matches = await mRes.json()
-            const myMatch = matches.find(m => m.org_id === user?.org_id && m.status === 'suggested')
-            if (myMatch) {
-              myMatches.push({ challenge: c, match: myMatch })
+        if (Array.isArray(verified)) {
+          for (const c of verified) {
+            const mRes = await fetch(`/api/matches/generate/${c.id}`, { method: 'POST' }).catch(() => fetch(`http://localhost:8000/api/matches/generate/${c.id}`, { method: 'POST' }))
+            if (mRes && mRes.ok) {
+              const matches = await mRes.json()
+              if (Array.isArray(matches)) {
+                const myMatch = matches.find(m => m.org_id === user?.org_id && m.status === 'suggested')
+                if (myMatch) {
+                  myMatches.push({ challenge: c, match: myMatch })
+                }
+              }
             }
           }
         }
@@ -38,21 +42,26 @@ export default function OrgDashboard() {
 
   const fetchActiveProjects = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/projects/')
-      if (res.ok) {
-        setActiveProjects(await res.json())
+      const res = await fetch('/api/projects/').catch(() => fetch('http://localhost:8000/api/projects/'))
+      if (res && res.ok) {
+        const data = await res.json()
+        setActiveProjects(Array.isArray(data) ? data : [])
       }
     } catch (e) { console.error(e) }
   }
 
   const handleAccept = async (matchId) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/matches/${matchId}`, {
+      const res = await fetch(`/api/matches/${matchId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'accepted' })
-      })
-      if (res.ok) {
+      }).catch(() => fetch(`http://localhost:8000/api/matches/${matchId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'accepted' })
+      }))
+      if (res && res.ok) {
         fetchRoutedChallenges()
         fetchActiveProjects()
       }
@@ -127,7 +136,7 @@ export default function OrgDashboard() {
             {activeProjects.map(p => (
               <div key={p.id} className="p-6 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 transition-colors flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Project ID: {p.id.split('-')[0]}</h4>
+                  <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Project ID: {String(p.id).split('-')[0]}</h4>
                   <div className="flex gap-2 mt-2">
                     <span className="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded">
                       Status: {p.status.toUpperCase()}

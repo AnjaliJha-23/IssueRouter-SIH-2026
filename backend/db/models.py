@@ -35,6 +35,7 @@ class Challenge(Base):
 
     id = Column(String, primary_key=True, index=True)
     title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
     official_description = Column(Text, nullable=True) # Edited by human
     ai_generated_summary = Column(Text, nullable=True) # Maintained by pipeline
     domain = Column(String, nullable=True) 
@@ -48,6 +49,12 @@ class Challenge(Base):
     lng = Column(Float, nullable=True)
     
     department = Column(String, nullable=True)
+    complaint_count = Column(Integer, default=1)
+    source_counts = Column(JSON, nullable=True)
+    ai_confidence = Column(Float, nullable=True)
+    duplicate_risk = Column(Float, nullable=True)
+    rt_reach = Column(Integer, default=0)
+    trend = Column(String, default="stable")
     verified = Column(Boolean, default=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -128,3 +135,36 @@ class Project(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     challenge = relationship("Challenge", back_populates="project")
+
+
+class Cluster(Base):
+    __tablename__ = "clusters"
+
+    cluster_id      = Column(String, primary_key=True, index=True)
+    priority        = Column(Integer, nullable=False)
+    problem         = Column(String, nullable=False)
+    summary         = Column(Text, nullable=False)
+    location        = Column(String, nullable=False)
+    lat             = Column(Float, nullable=True)
+    lng             = Column(Float, nullable=True)
+    department      = Column(String, nullable=False)
+    complaint_count = Column(Integer, default=0)
+    rt_reach        = Column(Integer, default=0)
+    trend           = Column(String, default="stable")
+    recommended_action = Column(Text, nullable=True)
+    time_window     = Column(String, default="Last 24 hours")
+    status          = Column(String, default="pending")
+    created_at      = Column(DateTime, default=datetime.utcnow)
+
+    tweets = relationship("Tweet", back_populates="cluster", cascade="all, delete-orphan")
+
+
+class Tweet(Base):
+    __tablename__ = "tweets"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    cluster_id = Column(String, ForeignKey("clusters.cluster_id"), nullable=False)
+    handle     = Column(String, nullable=False)
+    text       = Column(Text, nullable=False)
+
+    cluster = relationship("Cluster", back_populates="tweets")

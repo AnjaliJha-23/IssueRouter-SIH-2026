@@ -14,6 +14,7 @@ from api.challenges import router as challenges_router
 from api.smart_router import router as smart_router
 from api.projects import router as projects_router
 from api.stats import router as stats_router
+from api.proposals import router as proposals_router
 
 # ── App ────────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -40,6 +41,7 @@ app.include_router(challenges_router)
 app.include_router(smart_router)
 app.include_router(projects_router)
 app.include_router(stats_router)
+app.include_router(proposals_router)
 
 # ── Startup: create DB tables ──────────────────────────────────────────────
 @app.on_event("startup")

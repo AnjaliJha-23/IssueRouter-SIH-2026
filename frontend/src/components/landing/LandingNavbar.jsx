@@ -18,7 +18,8 @@ export default function LandingNavbar() {
   const handleSignIn = () => {
     if (token) {
       if (user?.role === 'Gov') navigate('/dashboard/gov')
-      else if (user?.role === 'University' || user?.role === 'Industry') navigate('/dashboard/org')
+      else if (user?.role === 'Industry') navigate('/dashboard/industry')
+      else if (user?.role === 'University') navigate('/dashboard/org')
       else navigate('/dashboard/citizen')
     } else {
       navigate('/login')
