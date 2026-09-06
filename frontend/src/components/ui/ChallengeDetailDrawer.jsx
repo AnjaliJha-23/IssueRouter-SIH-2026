@@ -163,7 +163,7 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
                     </button>
                     {challenge.status === 'pending_verification' && (
                         <button
-                            onClick={() => { onRoute(challenge.id); onClose(); }}
+                            onClick={() => { onRoute(challenge); onClose(); }}
                             className="px-6 py-2 rounded-lg text-sm font-bold bg-green-600 hover:bg-green-500 text-white transition-all shadow-lg shadow-green-600/20 flex items-center gap-2"
                         >
                             <CheckCircle2 size={16} />
@@ -172,7 +172,7 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
                     )}
                     {['verified', 'matches_suggested', 'ready_for_routing'].includes(challenge.status) && (
                         <button
-                            onClick={() => { onRoute(challenge.id); onClose(); }}
+                            onClick={() => { onRoute(challenge); onClose(); }}
                             className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
                         >
                             View Matches & Route

@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from db.database import get_db
-from db.models import Challenge
-from db.schemas import ChallengeOut, ChallengeCreate, ChallengeVerify
+from db.models import Challenge, User, Organization, RoutingBatch, RoutingInvitation
+from db.schemas import ChallengeOut, ChallengeCreate, ChallengeVerify, ChallengeRouteRequest, RoutingBatchOut
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
 
@@ -47,7 +47,21 @@ def list_challenges(
             (Challenge.id.ilike(search))
         )
 
-    return q.order_by(Challenge.created_at.desc()).all()
+    challenges = q.order_by(Challenge.created_at.desc()).all()
+    
+    # Populate active_deadline for routed challenges
+    for c in challenges:
+        if c.status == "routed":
+            # Find the most recent active batch
+            from sqlalchemy import desc
+            batch = db.query(RoutingBatch).filter(
+                RoutingBatch.challenge_id == c.id,
+                RoutingBatch.status == "active"
+            ).order_by(desc(RoutingBatch.created_at)).first()
+            if batch:
+                c.active_deadline = batch.deadline
+                
+    return challenges
 
 
 @router.post("/", response_model=ChallengeOut)
@@ -108,31 +122,106 @@ def verify_challenge(challenge_id: str, req: ChallengeVerify, db: Session = Depe
     
     challenge.verified = req.verified
     if req.verified and challenge.status == "pending_verification":
+        from datetime import datetime
         challenge.status = "verified"
+        challenge.verified_at = datetime.utcnow()
+        challenge.verified_by = "user-gov-1" # Mock current user ID
         
     db.commit()
     db.refresh(challenge)
     return challenge
 
-from pydantic import BaseModel
-
-class RouteRequest(BaseModel):
-    org_id: str
-    note: Optional[str] = None
-
-@router.post("/{challenge_id}/route", response_model=ChallengeOut)
-def route_challenge(challenge_id: str, req: RouteRequest, db: Session = Depends(get_db)):
+@router.post("/{challenge_id}/route", response_model=RoutingBatchOut)
+def route_challenge(challenge_id: str, req: ChallengeRouteRequest, db: Session = Depends(get_db)):
     challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
+        
+    if not req.org_ids:
+        raise HTTPException(status_code=400, detail="Must provide at least one organization ID")
     
-    # In a full system, we would create a RoutingHistory or Match record here.
-    # For now, we update the challenge status to routed and persist the routing target.
+    # Create the batch
+    batch_id = f"batch-{uuid.uuid4().hex[:8]}"
+    new_batch = RoutingBatch(
+        id=batch_id,
+        challenge_id=challenge.id,
+        deadline=req.deadline,
+        note=req.note,
+        status="active"
+    )
+    db.add(new_batch)
+    
+    # Create invitations
+    invitations = []
+    for org_id in req.org_ids:
+        org = db.query(Organization).filter(Organization.id == org_id).first()
+        if not org:
+            continue
+            
+        inv = RoutingInvitation(
+            id=f"inv-{uuid.uuid4().hex[:8]}",
+            batch_id=batch_id,
+            org_id=org.id,
+            status="pending"
+        )
+        invitations.append(inv)
+        
+    if invitations:
+        db.bulk_save_objects(invitations)
     
     challenge.status = "routed"
-    # We could store org_id in a new column, but updating the status is the minimum for the workflow
-    # to move it to the Progress dashboard.
+    db.commit()
+    db.refresh(new_batch)
+    return new_batch
+
+@router.post("/invitations/{invitation_id}/accept")
+def accept_invitation(invitation_id: str, db: Session = Depends(get_db)):
+    from datetime import datetime
+    
+    invitation = db.query(RoutingInvitation).filter(RoutingInvitation.id == invitation_id).first()
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+        
+    if invitation.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Cannot accept invitation in state: {invitation.status}")
+        
+    batch = invitation.batch
+    if batch.status != "active":
+        raise HTTPException(status_code=400, detail="The routing batch is no longer active.")
+        
+    if batch.deadline < datetime.utcnow():
+        # Clean up state since it's expired
+        batch.status = "expired"
+        invitation.status = "expired"
+        db.commit()
+        raise HTTPException(status_code=400, detail="The routing deadline has expired.")
+        
+    # Atomic first-accept-wins logic
+    now = datetime.utcnow()
+    
+    # 1. Accept this invitation
+    invitation.status = "accepted"
+    invitation.responded_at = now
+    
+    # 2. Close all other pending invitations in this batch
+    other_invitations = db.query(RoutingInvitation).filter(
+        RoutingInvitation.batch_id == batch.id,
+        RoutingInvitation.id != invitation.id,
+        RoutingInvitation.status == "pending"
+    ).all()
+    
+    for other in other_invitations:
+        other.status = "closed"
+        
+    # 3. Mark batch as completed
+    batch.status = "completed"
+    
+    # 4. Advance challenge state
+    challenge = batch.challenge
+    challenge.status = "in_project"
+    
+    # In a full system, we would create the Project record here as well.
+    # We leave Project creation for the future scope.
     
     db.commit()
-    db.refresh(challenge)
-    return challenge
+    return {"message": "Invitation accepted successfully", "challenge_id": challenge.id}

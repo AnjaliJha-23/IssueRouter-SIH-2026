@@ -15,6 +15,8 @@ import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 import ProjectWorkspace from './pages/ProjectWorkspace'
 
+import Universities from './pages/Universities'
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -38,6 +40,7 @@ export default function App() {
                   <Route path="analytics" element={<Analytics />} />
                   <Route path="maps" element={<Maps />} />
                   <Route path="progress" element={<Progress />} />
+                  <Route path="universities" element={<Universities />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>
               </Route>

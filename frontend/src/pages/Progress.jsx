@@ -38,7 +38,7 @@ const STEPS_RESOLVED = [
 
 function formatDuration(ms) {
     if (ms == null) return 'Closed'
-    if (ms <= 0) return 'Overdue'
+    if (ms <= 0) return 'Expired'
     const totalMinutes = Math.floor(ms / 60000)
     const days = Math.floor(totalMinutes / (60 * 24))
     const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
@@ -369,9 +369,9 @@ export default function Progress() {
                             
                             // Mock assignments for UI since we don't have a real assignments table yet
                             const hasOfficer = cluster.status === 'in_project' || cluster.status === 'resolved'
-                            const officerName = hasOfficer ? 'Nodal Officer (Univ)' : 'Unassigned'
+                            const officerName = hasOfficer ? 'Nodal Officer (Univ)' : 'Awaiting Acceptance'
                             const isResolved = cluster.status === 'resolved'
-                            const dueAt = cluster.due_at || new Date(new Date(cluster.created_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
+                            const dueAt = cluster.active_deadline || null
                             const remainingMs = dueAt ? new Date(dueAt).getTime() - now : null
 
                             return (

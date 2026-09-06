@@ -141,12 +141,12 @@ export default function GovDashboard() {
     }
   }
 
-  const handleConfirmRoute = async (id, orgId, note) => {
+  const handleConfirmRoute = async (id, orgIds, deadline, note) => {
     try {
         const res = await fetch(`http://localhost:8000/api/challenges/${id}/route`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ org_id: orgId, note })
+            body: JSON.stringify({ org_ids: orgIds, deadline, note })
         });
         if (res.ok) {
             setRoutingChallenge(null);
