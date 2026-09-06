@@ -14,6 +14,7 @@ import {
     X,
     ChevronRight,
     TrendingUp,
+    GraduationCap,
 } from 'lucide-react'
 
 const mainNav = [
@@ -21,6 +22,7 @@ const mainNav = [
     { label: 'Analytics', path: '/analytics', icon: BarChart2, badge: 'New' },
     { label: 'Maps', path: '/maps', icon: Map },
     { label: 'Progress', path: '/progress', icon: TrendingUp },
+    { label: 'Universities', path: '/universities', icon: GraduationCap },
 ]
 
 const accountNav = [
