@@ -143,8 +143,47 @@ def seed():
 
         db.bulk_save_objects(challenges)
         db.commit()
+        
+        # --- SEED MATCHES & PROJECTS ---
+        matches = []
+        projects = []
+        for challenge in challenges:
+            if challenge.status in ["matches_suggested", "ready_for_routing", "routed", "in_project", "resolved"]:
+                # Create 1-3 matches
+                num_matches = random.randint(1, 3)
+                chosen_orgs = random.sample(["org-univ-1", "org-univ-2", "org-univ-3", "org-ind-1"], num_matches)
+                
+                for i, org_id in enumerate(chosen_orgs):
+                    m_status = "suggested"
+                    if challenge.status in ["routed", "in_project", "resolved"] and i == 0:
+                        m_status = "accepted"
+                        
+                    matches.append(Match(
+                        id=str(uuid.uuid4()),
+                        challenge_id=challenge.id,
+                        org_id=org_id,
+                        match_score=random.randint(75, 98),
+                        match_reason=f"Strong research alignment and domain expertise in {challenge.department}.",
+                        status=m_status
+                    ))
+                    
+            if challenge.status in ["in_project", "resolved"]:
+                projects.append(Project(
+                    id=str(uuid.uuid4()),
+                    challenge_id=challenge.id,
+                    status="prototype" if challenge.status == "in_project" else "deployed",
+                    milestones_json=json.dumps([
+                        {"title": "Initial Research", "status": "completed"},
+                        {"title": "Prototype Phase", "status": "in_progress" if challenge.status == "in_project" else "completed"},
+                        {"title": "Deployment", "status": "pending" if challenge.status == "in_project" else "completed"}
+                    ])
+                ))
 
-        print(f"[seed] Successfully seeded 100 Jharkhand challenges for SIH demo.")
+        db.bulk_save_objects(matches)
+        db.bulk_save_objects(projects)
+        db.commit()
+
+        print(f"[seed] Successfully seeded 100 Jharkhand challenges, {len(matches)} matches, and {len(projects)} projects for SIH demo.")
 
     finally:
         db.close()
