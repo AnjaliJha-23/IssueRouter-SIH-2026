@@ -15,8 +15,8 @@ export default function ProjectWorkspace() {
 
   const fetchProject = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/projects/${id}`)
-      if (res.ok) setProject(await res.json())
+      const res = await fetch(`/api/projects/${id}`).catch(() => fetch(`http://localhost:8000/api/projects/${id}`))
+      if (res && res.ok) setProject(await res.json())
     } catch (e) {
       console.error(e)
     } finally {

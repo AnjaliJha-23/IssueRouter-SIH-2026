@@ -246,12 +246,15 @@ export default function Progress() {
             setLoading(true);
             try {
                 // Fetch all challenges that are no longer in the active government queue
-                const res = await fetch('http://localhost:8000/api/challenges/');
-                if (res.ok) {
+                const res = await fetch('/api/challenges/').catch(() => fetch('http://localhost:8000/api/challenges/'));
+                if (res && res.ok) {
                     const data = await res.json();
-                    // Filter for tracking statuses
-                    const tracking = data.filter(c => ['routed', 'in_project', 'resolved'].includes(c.status));
-                    setChallenges(tracking);
+                    if (Array.isArray(data)) {
+                        const tracking = data.filter(c => c && ['routed', 'in_project', 'resolved'].includes(c.status));
+                        setChallenges(tracking);
+                    } else {
+                        setChallenges([]);
+                    }
                 }
             } catch(e) {
                 console.error(e);
@@ -268,21 +271,28 @@ export default function Progress() {
     }, [])
 
     const filtered = useMemo(() => {
-        return challenges.filter((c) => {
-            const term = search.toLowerCase();
+        const list = Array.isArray(challenges) ? challenges : []
+        return list.filter((c) => {
+            if (!c) return false;
+            const term = (search || '').toLowerCase();
+            const title = String(c.title || '').toLowerCase();
+            const location = String(c.location || '').toLowerCase();
+            const department = String(c.department || c.domain || '').toLowerCase();
+            const id = String(c.id || '').toLowerCase();
+
             const matchSearch =
-                !search ||
-                c.title.toLowerCase().includes(term) ||
-                c.location.toLowerCase().includes(term) ||
-                (c.department && c.department.toLowerCase().includes(term)) ||
-                c.id.toLowerCase().includes(term);
+                !term ||
+                title.includes(term) ||
+                location.includes(term) ||
+                department.includes(term) ||
+                id.includes(term);
                 
             const matchStatus = statusFilter === 'all' || 
                 (statusFilter === 'inprogress' && ['routed', 'in_project'].includes(c.status)) ||
                 (statusFilter === 'resolved' && c.status === 'resolved');
                 
             return matchSearch && matchStatus;
-        }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
     }, [challenges, search, statusFilter])
 
     const inprogressCount = challenges.filter((c) => ['routed', 'in_project'].includes(c.status)).length

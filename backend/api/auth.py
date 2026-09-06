@@ -26,8 +26,10 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user_id: str
+    name: str | None = None
     role: str
-    org_id: str | None
+    org_id: str | None = None
+    organization: dict | None = None
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
@@ -48,12 +50,20 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     
     access_token = create_access_token(data={"sub": user.id, "role": user.role})
     
+    org_data = None
+    if user.org_id:
+        org_obj = db.query(Organization).filter(Organization.id == user.org_id).first()
+        if org_obj:
+            org_data = {"id": org_obj.id, "name": org_obj.name, "type": org_obj.type}
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "user_id": user.id,
+        "name": user.name,
         "role": user.role,
-        "org_id": user.org_id
+        "org_id": user.org_id,
+        "organization": org_data
     }
 
 @router.get("/me")

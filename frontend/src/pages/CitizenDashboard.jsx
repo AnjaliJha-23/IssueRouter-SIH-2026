@@ -17,10 +17,10 @@ export default function CitizenDashboard() {
 
   const fetchChallenges = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/challenges/')
-      if (res.ok) {
+      const res = await fetch('/api/challenges/').catch(() => fetch('http://localhost:8000/api/challenges/'))
+      if (res && res.ok) {
         const data = await res.json()
-        setChallenges(data)
+        setChallenges(Array.isArray(data) ? data : [])
       }
     } catch (e) {
       console.error(e)
@@ -32,7 +32,7 @@ export default function CitizenDashboard() {
     setSubmitting(true)
     setMsg('')
     try {
-      const res = await fetch('http://localhost:8000/api/challenges/', {
+      const res = await fetch('/api/challenges/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -42,8 +42,18 @@ export default function CitizenDashboard() {
           lat: 23.3441, // Defaulting for MVP
           lng: 85.3096
         })
-      })
-      if (res.ok) {
+      }).catch(() => fetch('http://localhost:8000/api/challenges/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          location,
+          lat: 23.3441,
+          lng: 85.3096
+        })
+      }))
+      if (res && res.ok) {
         setMsg('Challenge submitted successfully! The Smart Router is analyzing it.')
         setTitle('')
         setDescription('')

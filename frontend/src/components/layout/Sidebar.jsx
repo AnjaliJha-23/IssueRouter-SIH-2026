@@ -38,8 +38,21 @@ export default function Sidebar({ darkMode, toggleDarkMode, isOpen, onClose }) {
         navigate('/login')
     }
 
-    // Determine initials
-    const initials = user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U'
+    // Determine dashboard path based on role
+    const getDashboardPath = () => {
+        if (user?.role === 'Industry') return '/dashboard/industry'
+        if (user?.role === 'University') return '/dashboard/org'
+        if (user?.role === 'Citizen') return '/dashboard/citizen'
+        return '/dashboard/gov'
+    }
+
+    const initials = user?.name
+        ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        : (user?.role ? user.role.slice(0, 2).toUpperCase() : 'U')
+
+    const resolvedMainNav = mainNav.map(item => 
+        item.label === 'Dashboard' ? { ...item, path: getDashboardPath() } : item
+    )
 
     return (
         <>
@@ -85,7 +98,7 @@ export default function Sidebar({ darkMode, toggleDarkMode, isOpen, onClose }) {
                         Main
                     </p>
 
-                    {mainNav.map(({ label, path, icon: Icon, badge }) => (
+                    {resolvedMainNav.map(({ label, path, icon: Icon, badge }) => (
                         <NavLink
                             key={path}
                             to={path}

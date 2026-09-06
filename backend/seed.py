@@ -355,7 +355,7 @@ def seed():
 
         total_clusters = db.query(Cluster).count()
         total_tweets   = db.query(Tweet).count()
-        print(f"[seed] ✅  {total_clusters} clusters and {total_tweets} tweets seeded successfully.")
+        print(f"[seed] [OK] {total_clusters} clusters and {total_tweets} tweets seeded successfully.")
 
         # Summary
         from collections import Counter

@@ -17,7 +17,8 @@ export default function Login() {
       const user = await login(email, password || 'dummyhash')
       // Route based on role
       if (user.role === 'Gov') navigate('/dashboard/gov')
-      else if (user.role === 'University' || user.role === 'Industry') navigate('/dashboard/org')
+      else if (user.role === 'Industry') navigate('/dashboard/industry')
+      else if (user.role === 'University') navigate('/dashboard/org')
       else navigate('/dashboard/citizen')
     } catch (err) {
       setError('Failed to login. Please check credentials.')
@@ -27,11 +28,10 @@ export default function Login() {
   const seedLogin = (seedEmail) => {
     setEmail(seedEmail)
     setPassword('dummyhash')
-    // A small delay to let state update before submitting, though our handleLogin uses state directly.
-    // We'll just call login directly here.
     login(seedEmail, 'dummyhash').then((user) => {
       if (user.role === 'Gov') navigate('/dashboard/gov')
-      else if (user.role === 'University' || user.role === 'Industry') navigate('/dashboard/org')
+      else if (user.role === 'Industry') navigate('/dashboard/industry')
+      else if (user.role === 'University') navigate('/dashboard/org')
       else navigate('/dashboard/citizen')
     }).catch(() => setError('Failed to login'))
   }

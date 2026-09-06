@@ -69,11 +69,14 @@ export default function GovDashboard() {
       const qs = params.toString() ? `?${params.toString()}` : ''
 
       const [chRes, stRes] = await Promise.all([
-        fetch(`http://localhost:8000/api/challenges/${qs}`),
-        fetch('http://localhost:8000/api/stats/overview')
+        fetch(`/api/challenges/${qs}`).catch(() => fetch(`http://localhost:8000/api/challenges/${qs}`)),
+        fetch('/api/stats/overview').catch(() => fetch('http://localhost:8000/api/stats/overview'))
       ])
-      if (chRes.ok) setChallenges(await chRes.json())
-      if (stRes.ok) setStats(await stRes.json())
+      if (chRes && chRes.ok) {
+        const data = await chRes.json()
+        setChallenges(Array.isArray(data) ? data : [])
+      }
+      if (stRes && stRes.ok) setStats(await stRes.json())
     } catch (e) {
       console.error("Error fetching gov data", e)
     } finally {
@@ -82,15 +85,18 @@ export default function GovDashboard() {
   }
 
   const filtered = useMemo(() => {
-    return challenges.filter((c) => {
+    const list = Array.isArray(challenges) ? challenges : []
+    return list.filter((c) => {
+      if (!c) return false;
       // Exclude challenges that have left the active dashboard
       if (['routed', 'in_project', 'resolved'].includes(c.status)) return false;
       return true
-    }).sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0))
+    }).sort((a, b) => (b?.priority_score || 0) - (a?.priority_score || 0))
   }, [challenges])
 
   const counts = useMemo(() => {
-    const active = challenges.filter(c => !['routed', 'in_project', 'resolved'].includes(c.status));
+    const list = Array.isArray(challenges) ? challenges : []
+    const active = list.filter(c => c && !['routed', 'in_project', 'resolved'].includes(c.status));
     
     // Group counts dynamically
     const dynamicCounts = {
@@ -102,13 +108,13 @@ export default function GovDashboard() {
     };
     
     active.forEach(c => {
-      if (dynamicCounts[c.status] !== undefined) {
+      if (c && dynamicCounts[c.status] !== undefined) {
         dynamicCounts[c.status]++;
       }
     });
     
     // Also add some meta stats for the top KPI row
-    dynamicCounts.high_priority = active.filter(c => c.priority_score >= 85).length;
+    dynamicCounts.high_priority = active.filter(c => c && (c.priority_score || 0) >= 85).length;
     return dynamicCounts;
   }, [challenges])
 

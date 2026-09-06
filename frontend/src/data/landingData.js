@@ -104,7 +104,7 @@ export const stakeholderRoles = [
     ],
     ctaText: 'Enter Industry Portal',
     ctaColor: 'text-cyan-600 hover:text-cyan-700 dark:text-cyan-400',
-    targetRoute: '/dashboard/org',
+    targetRoute: '/dashboard/industry',
     targetRole: 'Industry',
   },
   {
