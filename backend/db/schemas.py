@@ -12,9 +12,35 @@ class OrganizationOut(BaseModel):
     name: str
     type: str
     location: Optional[str]
+    district: Optional[str] = None
+    research_domains: Optional[str] = None
+    research_specializations: Optional[str] = None
+    research_output: Optional[str] = None
+    status: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+class OrganizationCreate(BaseModel):
+    name: str
+    type: str = "University"
+    location: Optional[str] = None
+    district: Optional[str] = None
+    research_domains: Optional[str] = None
+    research_specializations: Optional[str] = None
+    research_output: Optional[str] = None
+    status: str = "ACTIVE"
+
+class OrganizationUpdate(BaseModel):
+    name: Optional[str] = None
+    location: Optional[str] = None
+    district: Optional[str] = None
+    research_domains: Optional[str] = None
+    research_specializations: Optional[str] = None
+    research_output: Optional[str] = None
+    status: Optional[str] = None
 
 class UserOut(BaseModel):
     id: str
@@ -74,6 +100,8 @@ class ChallengeBase(BaseModel):
     trend: str = "stable"
     created_by: Optional[str]
     verified: bool
+    verified_by: Optional[str] = None
+    verified_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:
@@ -83,6 +111,7 @@ class ChallengeOut(ChallengeBase):
     creator: Optional[UserOut] = None
     matches: List[MatchOut] = []
     project: Optional[ProjectOut] = None
+    active_deadline: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -96,6 +125,34 @@ class ChallengeCreate(BaseModel):
 
 class ChallengeVerify(BaseModel):
     verified: bool
+
+class ChallengeRouteRequest(BaseModel):
+    org_ids: List[str]
+    deadline: datetime
+    note: Optional[str] = None
+
+class RoutingInvitationOut(BaseModel):
+    id: str
+    org_id: str
+    status: str
+    responded_at: Optional[datetime]
+    created_at: datetime
+    organization: Optional[OrganizationOut] = None
+
+    class Config:
+        from_attributes = True
+
+class RoutingBatchOut(BaseModel):
+    id: str
+    challenge_id: str
+    deadline: datetime
+    note: Optional[str]
+    status: str
+    created_at: datetime
+    invitations: List[RoutingInvitationOut] = []
+
+    class Config:
+        from_attributes = True
 
 # ── Stats ──────────────────────────────────────────────────────────────────
 class StatsOverviewOut(BaseModel):
