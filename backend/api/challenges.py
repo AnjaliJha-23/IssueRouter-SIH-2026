@@ -43,7 +43,8 @@ def list_challenges(
         search = f"%{search}%"
         q = q.filter(
             (Challenge.title.ilike(search)) |
-            (Challenge.description.ilike(search)) |
+            (Challenge.official_description.ilike(search)) |
+            (Challenge.ai_generated_summary.ilike(search)) |
             (Challenge.id.ilike(search))
         )
 
@@ -86,7 +87,7 @@ def create_challenge(req: ChallengeCreate, db: Session = Depends(get_db)):
     new_challenge = Challenge(
         id=str(uuid.uuid4()),
         title=req.title,
-        description=req.description,
+        official_description=req.description,
         location=req.location,
         lat=req.lat,
         lng=req.lng,

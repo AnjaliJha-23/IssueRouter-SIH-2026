@@ -63,6 +63,11 @@ class Challenge(Base):
     verified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    @property
+    def description(self):
+        return self.official_description or self.ai_generated_summary or ""
+
+
     creator = relationship("User", foreign_keys=[created_by], back_populates="challenges")
     matches = relationship("Match", back_populates="challenge")
     project = relationship("Project", back_populates="challenge", uselist=False)
