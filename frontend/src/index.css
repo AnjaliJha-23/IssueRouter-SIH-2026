@@ -4,7 +4,8 @@
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Public Sans', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', 'Public Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --animate-fade-in-up: fade-in-up 0.5s ease-out forwards;
 }

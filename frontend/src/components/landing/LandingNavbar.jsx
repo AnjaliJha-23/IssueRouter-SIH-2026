@@ -1,21 +1,19 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { User, Send, LogIn, LayoutDashboard } from 'lucide-react'
-import logoImg from '../../assets/IssueRouter.png'
+import { User, Menu, X } from 'lucide-react'
+import logoSvg from '../../assets/issuerouter-logo.svg'
 
 export default function LandingNavbar() {
   const navigate = useNavigate()
   const { user, token } = useAuth()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const handleReportChallenge = () => {
-    if (token) {
-      navigate('/dashboard/citizen')
-    } else {
-      navigate('/login?redirect=/dashboard/citizen&role=Citizen')
-    }
+  const handleLoginClick = () => {
+    navigate('/login')
   }
 
-  const handleSignIn = () => {
+  const handleProfileClick = () => {
     if (token) {
       if (user?.role === 'Gov') navigate('/dashboard/gov')
       else if (user?.role === 'Industry') navigate('/dashboard/industry')
@@ -26,71 +24,128 @@ export default function LandingNavbar() {
     }
   }
 
+  const scrollTo = (id) => {
+    setMobileMenuOpen(false)
+    if (id === 'top') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      const el = document.getElementById(id)
+      if (el) el.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+
   return (
-    <header className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-50 bg-white/95 dark:bg-[#0b1c30]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between">
         
-        {/* Left Brand Identity */}
+        {/* Left: IssueRouter Logo */}
         <div 
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="flex items-center gap-3 cursor-pointer group"
+          onClick={() => scrollTo('top')}
+          className="flex items-center cursor-pointer group"
+          title="IssueRouter Home"
         >
           <img 
-            src={logoImg} 
+            src={logoSvg} 
             alt="IssueRouter Logo" 
-            className="w-8 h-8 object-contain transition-transform group-hover:scale-105"
-            onError={(e) => { e.target.style.display = 'none' }}
+            className="h-8 sm:h-10 w-auto object-contain transition-transform group-hover:scale-[1.02]"
           />
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-extrabold tracking-tight text-blue-700 dark:text-blue-400">
-              IssueRouter
-            </span>
-            <span className="hidden sm:inline-block text-[10px] tracking-wider uppercase font-semibold text-slate-500 dark:text-slate-400 border-l border-slate-300 dark:border-slate-700 pl-2">
-              Societal Innovation Portal
-            </span>
-          </div>
         </div>
 
-        {/* Right Action Controls */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleReportChallenge}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-800 bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded transition-all"
+        {/* Right Desktop Nav: Home, How it Works, About, Login button, User profile */}
+        <nav className="hidden md:flex items-center gap-8">
+          <button 
+            type="button"
+            onClick={() => scrollTo('top')}
+            className="text-sm font-medium text-slate-700 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 transition-colors cursor-pointer"
           >
-            <Send className="w-3.5 h-3.5" />
-            <span>Report a Challenge</span>
+            Home
+          </button>
+          <button 
+            type="button"
+            onClick={() => scrollTo('problem-to-impact')}
+            className="text-sm font-medium text-slate-700 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 transition-colors cursor-pointer"
+          >
+            How it Works
+          </button>
+          <button 
+            type="button"
+            onClick={() => scrollTo('about')}
+            className="text-sm font-medium text-slate-700 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 transition-colors cursor-pointer"
+          >
+            About
           </button>
 
+          {/* Login Button (Strictly "Login" per design reference) */}
           <button
-            onClick={handleSignIn}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs sm:text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 rounded shadow-sm hover:shadow transition-all"
+            type="button"
+            id="nav-login-btn"
+            onClick={handleLoginClick}
+            className="px-5 py-2 text-sm font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] dark:bg-blue-600 dark:hover:bg-blue-700 rounded-lg shadow-sm transition-all hover:shadow cursor-pointer"
           >
-            {token ? (
-              <>
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span>Portal</span>
-              </>
-            ) : (
-              <>
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Sign In</span>
-              </>
-            )}
+            Login
           </button>
 
-          {/* User Status / Avatar Pill */}
-          <div 
-            onClick={handleSignIn}
-            className="p-1.5 text-slate-500 hover:text-blue-700 dark:text-slate-400 dark:hover:text-blue-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-            title={user ? `${user.email} (${user.role})` : 'Account'}
+          {/* User/Profile Icon */}
+          <button 
+            type="button"
+            id="nav-profile-btn"
+            onClick={handleProfileClick}
+            className="w-9 h-9 rounded-full border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:border-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer bg-slate-50/50 dark:bg-slate-800/50"
+            title={user ? `${user.email} (${user.role})` : 'User Profile'}
+            aria-label="User Profile"
           >
-            <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300">
-              <User className="w-4 h-4" />
-            </div>
-          </div>
+            <User className="w-5 h-5" />
+          </button>
+        </nav>
+
+        {/* Mobile Hamburger Controls */}
+        <div className="flex md:hidden items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLoginClick}
+            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0F172A] dark:bg-blue-600 rounded-lg shadow-sm cursor-pointer"
+          >
+            Login
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 rounded-md focus:outline-none cursor-pointer"
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
 
       </div>
+
+      {/* Mobile Drawer Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1c30] px-4 pt-3 pb-5 space-y-3">
+          <button 
+            type="button"
+            onClick={() => scrollTo('top')}
+            className="block w-full text-left py-2 text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+          >
+            Home
+          </button>
+          <button 
+            type="button"
+            onClick={() => scrollTo('problem-to-impact')}
+            className="block w-full text-left py-2 text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+          >
+            How it Works
+          </button>
+          <button 
+            type="button"
+            onClick={() => scrollTo('about')}
+            className="block w-full text-left py-2 text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+          >
+            About
+          </button>
+        </div>
+      )}
     </header>
   )
 }
