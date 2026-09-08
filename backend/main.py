@@ -50,6 +50,15 @@ app.include_router(universities_router)
 def startup_event():
     print("[IssueRouter-SIH] Creating DB tables if not exist…")
     Base.metadata.create_all(bind=engine)
+    try:
+        with engine.connect() as conn:
+            cols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(projects)").fetchall()]
+            if "org_id" not in cols:
+                conn.exec_driver_sql("ALTER TABLE projects ADD COLUMN org_id VARCHAR REFERENCES organizations(id)")
+                conn.commit()
+                print("[IssueRouter-SIH] Migrated projects table: added org_id column.")
+    except Exception as e:
+        print("[IssueRouter-SIH] Startup column check notice:", e)
     print("[IssueRouter-SIH] DB ready.")
 
 # ── Health check ───────────────────────────────────────────────────────────

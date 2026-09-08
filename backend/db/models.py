@@ -146,11 +146,49 @@ class Project(Base):
 
     id = Column(String, primary_key=True, index=True)
     challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False, unique=True)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=True)
     status = Column(String, default="prototype")
     milestones_json = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     challenge = relationship("Challenge", back_populates="project")
+    organization = relationship("Organization")
+    proposal = relationship("Proposal", back_populates="project", uselist=False)
+
+class Proposal(Base):
+    __tablename__ = "proposals"
+
+    id = Column(String, primary_key=True, index=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False, unique=True)
+    challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=False)
+
+    title = Column(String, nullable=False)
+    problem_understanding = Column(Text, nullable=True)
+    proposed_solution = Column(Text, nullable=False)
+    approach_methodology = Column(Text, nullable=True)
+    trl = Column(String, default="TRL-6 (Field Pilot Ready)")
+    budget_required = Column(String, nullable=False)
+    budget_num = Column(Integer, nullable=False)
+    impact_metrics = Column(Text, nullable=True)
+    timeline = Column(String, nullable=True)
+    resources_needed = Column(Text, nullable=True)
+    faculty_lead = Column(String, nullable=True)
+    contact_email = Column(String, nullable=True)
+    team_members = Column(Text, nullable=True)
+    evidence_research = Column(Text, nullable=True)
+
+    status = Column(String, default="submitted") # draft, submitted, under_review, accepted
+    funding_status = Column(String, default="Open for Funding") # Open for Funding, Partially Funded, Funded
+    collaboration_status = Column(String, default="Seeking Industry Partner") # Seeking Industry Partner, In Discussions, Partnered
+    funds_committed = Column(Integer, default=0)
+    partners = Column(JSON, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = relationship("Project", back_populates="proposal")
+    challenge = relationship("Challenge")
+    organization = relationship("Organization")
 
 class Cluster(Base):
     __tablename__ = "clusters"

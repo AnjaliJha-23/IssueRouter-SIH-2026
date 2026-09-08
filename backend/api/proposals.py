@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import Challenge, Organization
+from db.models import Challenge, Organization, Proposal
 
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
 
@@ -228,6 +228,43 @@ def _build_proposal(challenge: Challenge, index: int) -> Dict[str, Any]:
         "created_at": challenge.created_at.isoformat() if challenge.created_at else datetime.utcnow().isoformat(),
     }
 
+def _proposal_from_db(p: Proposal) -> Dict[str, Any]:
+    c = p.challenge
+    org = p.organization
+    uni_name = org.name if org else "University Research Team"
+    prop_id = p.id
+    overrides = PROPOSAL_STATE_OVERRIDES.get(prop_id, {})
+
+    funding_status = overrides.get("funding_status", p.funding_status or "Open for Funding")
+    collaboration_status = overrides.get("collaboration_status", p.collaboration_status or "Seeking Industry Partner")
+    funds_committed = overrides.get("funds_committed", p.funds_committed or 0)
+    partners = overrides.get("partners", p.partners or [])
+
+    return {
+        "id": prop_id,
+        "challenge_id": c.id if c else p.challenge_id,
+        "problem": c.title if c else p.title,
+        "department": (c.department if c else None) or "Public Infrastructure",
+        "description": (c.description if c else None) or p.problem_understanding or "Civic challenge under university solution development.",
+        "domain": (c.domain if c else None) or "HealthTech",
+        "location": (c.location if c else None) or "Jharkhand",
+        "priority_score": (c.priority_score if c else 85),
+        "complaint_count": (c.complaint_count if c else 50),
+        "proposed_solution": p.proposed_solution,
+        "university": uni_name,
+        "faculty_lead": p.faculty_lead or "Dr. Faculty Lead",
+        "contact_email": p.contact_email or "research@university.ac.in",
+        "trl": p.trl or "TRL-6 (Field Pilot Ready)",
+        "budget_required": p.budget_required,
+        "budget_num": p.budget_num,
+        "impact_metrics": p.impact_metrics or "Empowers citizens and improves civic efficiency.",
+        "funding_status": funding_status,
+        "collaboration_status": collaboration_status,
+        "funds_committed": funds_committed,
+        "partners": partners,
+        "created_at": p.created_at.isoformat() if p.created_at else datetime.utcnow().isoformat(),
+    }
+
 @router.get("/", response_model=List[ProposalOut])
 def list_proposals(
     search: Optional[str] = Query(None),
@@ -237,12 +274,21 @@ def list_proposals(
     funding_status: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    challenges = db.query(Challenge).order_by(Challenge.priority_score.desc()).all()
-    proposals = []
+    # 1. Fetch real proposals submitted from Project Workspace
+    db_proposals = db.query(Proposal).order_by(Proposal.created_at.desc()).all()
+    real_cids = {p.challenge_id for p in db_proposals}
     
+    # Live submitted proposals are placed first
+    all_proposals_raw = [_proposal_from_db(p) for p in db_proposals]
+    
+    # 2. Append fallback mock proposals for challenges without submitted proposals
+    challenges = db.query(Challenge).order_by(Challenge.priority_score.desc()).all()
     for idx, c in enumerate(challenges):
-        p = _build_proposal(c, idx)
-        
+        if c.id not in real_cids:
+            all_proposals_raw.append(_build_proposal(c, idx))
+            
+    proposals = []
+    for p in all_proposals_raw:
         # Apply filters
         if search:
             s_lower = search.lower()
@@ -275,8 +321,14 @@ def list_proposals(
 
 @router.get("/stats")
 def get_industry_stats(db: Session = Depends(get_db)):
+    db_proposals = db.query(Proposal).all()
+    real_cids = {p.challenge_id for p in db_proposals}
+    
+    proposals = [_proposal_from_db(p) for p in db_proposals]
     challenges = db.query(Challenge).all()
-    proposals = [_build_proposal(c, idx) for idx, c in enumerate(challenges)]
+    for idx, c in enumerate(challenges):
+        if c.id not in real_cids:
+            proposals.append(_build_proposal(c, idx))
     
     total_proposals = len(proposals)
     seeking_funding = len([p for p in proposals if p["funding_status"] == "Open for Funding"])
@@ -296,7 +348,7 @@ def get_industry_stats(db: Session = Depends(get_db)):
     }
 
 @router.post("/{proposal_id}/collaborate")
-def collaborate_on_proposal(proposal_id: str, req: CollaborateRequest):
+def collaborate_on_proposal(proposal_id: str, req: CollaborateRequest, db: Session = Depends(get_db)):
     current = PROPOSAL_STATE_OVERRIDES.get(proposal_id, {})
     partners = current.get("partners", [])
     if req.partner_name not in partners:
@@ -308,6 +360,13 @@ def collaborate_on_proposal(proposal_id: str, req: CollaborateRequest):
     current["collaboration_type"] = req.collaboration_type
     PROPOSAL_STATE_OVERRIDES[proposal_id] = current
     
+    # Also update DB proposal if exists
+    db_prop = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    if db_prop:
+        db_prop.partners = partners
+        db_prop.collaboration_status = "Partnered"
+        db.commit()
+    
     return {
         "status": "success",
         "message": f"Collaboration offer sent to university research team for {proposal_id}",
@@ -317,7 +376,7 @@ def collaborate_on_proposal(proposal_id: str, req: CollaborateRequest):
     }
 
 @router.post("/{proposal_id}/fund")
-def fund_proposal(proposal_id: str, req: FundRequest):
+def fund_proposal(proposal_id: str, req: FundRequest, db: Session = Depends(get_db)):
     current = PROPOSAL_STATE_OVERRIDES.get(proposal_id, {})
     partners = current.get("partners", [])
     if req.funder_name not in partners:
@@ -330,6 +389,15 @@ def fund_proposal(proposal_id: str, req: FundRequest):
     current["collaboration_status"] = "Partnered"
     current["csr_bucket"] = req.csr_bucket
     PROPOSAL_STATE_OVERRIDES[proposal_id] = current
+    
+    # Also update DB proposal if exists
+    db_prop = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    if db_prop:
+        db_prop.partners = partners
+        db_prop.funds_committed = current_funds
+        db_prop.funding_status = "Funded"
+        db_prop.collaboration_status = "Partnered"
+        db.commit()
     
     return {
         "status": "success",

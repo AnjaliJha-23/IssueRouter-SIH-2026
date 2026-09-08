@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from db.database import get_db
-from db.models import Challenge, User, Organization, RoutingBatch, RoutingInvitation
-from db.schemas import ChallengeOut, ChallengeCreate, ChallengeVerify, ChallengeRouteRequest, RoutingBatchOut
+from db.models import Challenge, User, Organization, RoutingBatch, RoutingInvitation, Project
+from db.schemas import ChallengeOut, ChallengeCreate, ChallengeVerify, ChallengeRouteRequest, RoutingBatchOut, AssignmentOut
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
 
@@ -107,6 +107,42 @@ def create_challenge(req: ChallengeCreate, db: Session = Depends(get_db)):
     return new_challenge
 
 
+@router.get("/assignments", response_model=List[AssignmentOut])
+def list_assignments(
+    org_id: Optional[str] = Query(None, description="Filter assignments by University organization ID"),
+    status: Optional[str] = Query(None, description="Filter assignments by status: pending, accepted, rejected, all"),
+    db: Session = Depends(get_db)
+):
+    q = db.query(RoutingInvitation)
+    if org_id:
+        q = q.filter(RoutingInvitation.org_id == org_id)
+    if status and status != "all":
+        q = q.filter(RoutingInvitation.status == status)
+
+    invitations = q.order_by(RoutingInvitation.created_at.desc()).all()
+    results = []
+    for inv in invitations:
+        batch = inv.batch
+        if not batch or not batch.challenge:
+            continue
+        
+        # Total universities assigned in this routing batch
+        total_unis = len(batch.invitations) if batch.invitations else 1
+
+        results.append(AssignmentOut(
+            assignment_id=inv.id,
+            batch_id=batch.id,
+            org_id=inv.org_id,
+            status=inv.status,
+            created_at=inv.created_at,
+            responded_at=inv.responded_at,
+            deadline=batch.deadline,
+            government_note=batch.note,
+            total_assigned_universities=total_unis,
+            challenge=batch.challenge
+        ))
+    return results
+
 @router.get("/{challenge_id}", response_model=ChallengeOut)
 def get_challenge(challenge_id: str, db: Session = Depends(get_db)):
     challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
@@ -177,6 +213,7 @@ def route_challenge(challenge_id: str, req: ChallengeRouteRequest, db: Session =
 
 @router.post("/invitations/{invitation_id}/accept")
 def accept_invitation(invitation_id: str, db: Session = Depends(get_db)):
+    import json
     from datetime import datetime
     
     invitation = db.query(RoutingInvitation).filter(RoutingInvitation.id == invitation_id).first()
@@ -221,8 +258,46 @@ def accept_invitation(invitation_id: str, db: Session = Depends(get_db)):
     challenge = batch.challenge
     challenge.status = "in_project"
     
-    # In a full system, we would create the Project record here as well.
-    # We leave Project creation for the future scope.
-    
+    # 5. Create or associate Project record with this organization
+    project = db.query(Project).filter(Project.challenge_id == challenge.id).first()
+    if not project:
+        project = Project(
+            id=f"proj-{uuid.uuid4().hex[:8]}",
+            challenge_id=challenge.id,
+            org_id=invitation.org_id,
+            status="prototype",
+            milestones_json=json.dumps([
+                {"title": "Initial Problem Analysis & Architecture", "status": "completed"},
+                {"title": "Solution Proposal Submission", "status": "in_progress"},
+                {"title": "Prototype Development & Pilot", "status": "pending"},
+                {"title": "Industry Deployment", "status": "pending"}
+            ])
+        )
+        db.add(project)
+    else:
+        # Associate org_id if not present
+        if not project.org_id:
+            project.org_id = invitation.org_id
+        if project.status == "prototype":
+            project.status = "in_progress"
+            
     db.commit()
-    return {"message": "Invitation accepted successfully", "challenge_id": challenge.id}
+    db.refresh(project)
+    return {
+        "message": "Invitation accepted successfully",
+        "challenge_id": challenge.id,
+        "project_id": project.id,
+        "status": "accepted"
+    }
+
+@router.post("/invitations/{invitation_id}/decline")
+def decline_invitation(invitation_id: str, db: Session = Depends(get_db)):
+    from datetime import datetime
+    invitation = db.query(RoutingInvitation).filter(RoutingInvitation.id == invitation_id).first()
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+        
+    invitation.status = "rejected"
+    invitation.responded_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Invitation declined", "invitation_id": invitation.id, "status": "rejected"}

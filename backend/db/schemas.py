@@ -53,13 +53,65 @@ class UserOut(BaseModel):
     class Config:
         from_attributes = True
 
+# ── Proposal ───────────────────────────────────────────────────────────────
+class ProposalDetailOut(BaseModel):
+    id: str
+    project_id: str
+    challenge_id: str
+    org_id: str
+    title: str
+    problem_understanding: Optional[str] = None
+    proposed_solution: str
+    approach_methodology: Optional[str] = None
+    trl: str = "TRL-6 (Field Pilot Ready)"
+    budget_required: str
+    budget_num: int
+    impact_metrics: Optional[str] = None
+    timeline: Optional[str] = None
+    resources_needed: Optional[str] = None
+    faculty_lead: Optional[str] = None
+    contact_email: Optional[str] = None
+    team_members: Optional[str] = None
+    evidence_research: Optional[str] = None
+    status: str = "submitted"
+    funding_status: str = "Open for Funding"
+    collaboration_status: str = "Seeking Industry Partner"
+    funds_committed: int = 0
+    partners: List[str] = []
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ProposalCreate(BaseModel):
+    solution_title: str
+    problem_understanding: Optional[str] = None
+    proposed_solution: str
+    approach_methodology: Optional[str] = None
+    trl: Optional[str] = "TRL-6 (Field Pilot Ready)"
+    budget_required: str
+    budget_num: Optional[int] = None
+    impact_metrics: Optional[str] = None
+    timeline: Optional[str] = None
+    resources_needed: Optional[str] = None
+    faculty_lead: Optional[str] = None
+    contact_email: Optional[str] = None
+    team_members: Optional[str] = None
+    evidence_research: Optional[str] = None
+    is_draft: Optional[bool] = False
+
 # ── Project ────────────────────────────────────────────────────────────────
 class ProjectOut(BaseModel):
     id: str
     challenge_id: str
+    org_id: Optional[str] = None
     status: str
-    milestones_json: Optional[Any]
+    milestones_json: Optional[Any] = None
     created_at: datetime
+    organization: Optional[OrganizationOut] = None
+    challenge: Optional[ChallengeBase] = None
+    proposal: Optional[ProposalDetailOut] = None
 
     class Config:
         from_attributes = True
@@ -153,6 +205,25 @@ class RoutingBatchOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class AssignmentOut(BaseModel):
+    assignment_id: str
+    batch_id: str
+    org_id: str
+    status: str
+    created_at: datetime
+    responded_at: Optional[datetime] = None
+    deadline: datetime
+    government_note: Optional[str] = None
+    total_assigned_universities: int = 1
+    challenge: ChallengeBase
+
+    class Config:
+        from_attributes = True
+
+ProjectOut.model_rebuild()
+ChallengeOut.model_rebuild()
+AssignmentOut.model_rebuild()
 
 # ── Stats ──────────────────────────────────────────────────────────────────
 class StatsOverviewOut(BaseModel):
