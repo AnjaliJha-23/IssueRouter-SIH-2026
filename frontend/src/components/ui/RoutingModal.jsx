@@ -23,6 +23,14 @@ export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) 
             setDeadlineOption("7")
             setCustomDate("")
             setSearchQuery("")
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    onClose()
+                }
+            }
+            window.addEventListener('keydown', handleKeyDown)
+            return () => window.removeEventListener('keydown', handleKeyDown)
         }
     }, [isOpen, challenge])
 
@@ -155,61 +163,81 @@ export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) 
 
                     {/* Universities List */}
                     <div>
-                        <h3 className="text-sm font-bold text-neutral-900 dark:text-white mb-3 flex justify-between items-end">
-                            Recommended Partners
-                            {loadingMatches && <span className="text-xs text-blue-500 font-medium animate-pulse">Analyzing profiles...</span>}
-                        </h3>
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                                <Building2 size={16} className="text-blue-600 dark:text-blue-400" />
+                                Recommended University Partners
+                            </h3>
+                            {loadingMatches && (
+                                <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5 animate-pulse">
+                                    <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400" />
+                                    Analyzing research profiles...
+                                </span>
+                            )}
+                        </div>
                         
                         <div className="space-y-3">
-                            {!loadingMatches && matches.length === 0 && (
+                            {loadingMatches ? (
+                                <div className="space-y-3">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-800/40 animate-pulse space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-1/3" />
+                                                <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-12" />
+                                            </div>
+                                            <div className="h-3 bg-neutral-100 dark:bg-neutral-700/60 rounded w-2/3" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : matches.length === 0 ? (
                                 <div className="text-center py-6 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700">
                                     <AlertCircle className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
                                     <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">No strong automatic matches found.</p>
                                     <p className="text-xs text-neutral-500 mt-1">Browse the university directory below to select institutions manually.</p>
                                 </div>
-                            )}
-
-                            {matches.map(match => (
-                                <label 
-                                    key={match.org_id}
-                                    className={`
-                                        flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all
-                                        ${selectedOrgIds.has(match.org_id)
-                                            ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/10' 
-                                            : 'border-neutral-200 dark:border-neutral-700 hover:border-blue-300 dark:hover:border-blue-700'
-                                        }
-                                    `}
-                                >
-                                    <div className="pt-0.5 mr-3">
-                                        <input 
-                                            type="checkbox" 
-                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
-                                            checked={selectedOrgIds.has(match.org_id)}
-                                            onChange={() => toggleSelection(match.org_id)}
-                                        />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <p className="text-sm font-bold text-neutral-900 dark:text-white leading-tight">
-                                                {match.organization?.name || "Partner Institution"}
-                                            </p>
-                                            <span className="text-sm font-bold text-blue-700 dark:text-blue-400">
-                                                {match.match_score}%
-                                            </span>
+                            ) : (
+                                matches.map(match => (
+                                    <label 
+                                        key={match.org_id}
+                                        className={`
+                                            flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all
+                                            ${selectedOrgIds.has(match.org_id)
+                                                ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 shadow-xs' 
+                                                : 'border-neutral-200 dark:border-neutral-700 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-neutral-900'
+                                            }
+                                        `}
+                                    >
+                                        <div className="pt-0.5 mr-3">
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
+                                                checked={selectedOrgIds.has(match.org_id)}
+                                                onChange={() => toggleSelection(match.org_id)}
+                                            />
                                         </div>
-                                        <p className="text-xs text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5">
-                                            <CheckCircle2 size={12} className="text-emerald-500 flex-shrink-0" />
-                                            {match.match_reason}
-                                        </p>
-                                    </div>
-                                </label>
-                            ))}
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <p className="text-sm font-bold text-neutral-900 dark:text-white leading-tight">
+                                                    {match.organization?.name || "Partner Institution"}
+                                                </p>
+                                                <span className="text-sm font-black text-blue-700 dark:text-blue-400 bg-blue-100/60 dark:bg-blue-950/40 px-2 py-0.5 rounded">
+                                                    {match.match_score}%
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5">
+                                                <CheckCircle2 size={12} className="text-emerald-500 flex-shrink-0" />
+                                                {match.match_reason}
+                                            </p>
+                                        </div>
+                                    </label>
+                                ))
+                            )}
                         </div>
                     </div>
 
                     {/* Manual Search */}
                     <div>
-                        <h3 className="text-sm font-bold text-neutral-900 dark:text-white mb-3">Add from Directory</h3>
+                        <h3 className="text-sm font-bold text-neutral-900 dark:text-white mb-2">Add from University Directory</h3>
                         <div className="relative">
                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
@@ -217,21 +245,21 @@ export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search university by name or location..."
-                                className="w-full h-[40px] pl-9 pr-3 text-[13px] bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg outline-none text-neutral-700 dark:text-neutral-200 focus:border-blue-400 transition-colors"
+                                className="w-full h-[38px] pl-9 pr-3 text-[12.5px] bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg outline-none text-neutral-700 dark:text-neutral-200 focus:border-blue-400 transition-colors"
                             />
                         </div>
                         {searchResults.length > 0 && (
-                            <div className="mt-2 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden divide-y divide-neutral-100 dark:divide-neutral-800">
+                            <div className="mt-2 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden divide-y divide-neutral-100 dark:divide-neutral-800 shadow-sm">
                                 {searchResults.slice(0, 4).map(uni => (
-                                    <div key={uni.id} className="flex justify-between items-center p-3 bg-white dark:bg-neutral-900">
+                                    <div key={uni.id} className="flex justify-between items-center p-3 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800/60 transition-colors">
                                         <div>
                                             <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">{uni.name}</p>
-                                            <p className="text-[11px] text-neutral-500">{uni.location}</p>
+                                            <p className="text-[11px] text-neutral-500">{uni.location || uni.district || 'Jharkhand'}</p>
                                         </div>
                                         <button 
                                             onClick={() => {
                                                 toggleSelection(uni.id)
-                                                setSearchQuery("") // clear search after add
+                                                setSearchQuery("")
                                             }}
                                             disabled={selectedOrgIds.has(uni.id)}
                                             className="px-3 py-1.5 text-xs font-semibold rounded-md flex items-center gap-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
@@ -242,16 +270,16 @@ export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) 
                                 ))}
                             </div>
                         )}
-                        {/* Display manually selected universities that are not in the matches array */}
+                        {/* Display manually selected universities */}
                         {Array.from(selectedOrgIds).filter(id => !matchIds.has(id)).map(id => {
                             const uni = allUniversities.find(u => u.id === id)
                             if (!uni) return null
                             return (
-                                <div key={id} className="mt-3 flex items-start p-4 rounded-xl border-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer">
+                                <div key={id} className="mt-2.5 flex items-start p-3.5 rounded-xl border-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer">
                                     <div className="pt-0.5 mr-3">
                                         <input 
                                             type="checkbox" 
-                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
                                             checked={true}
                                             onChange={() => toggleSelection(id)}
                                         />
@@ -260,7 +288,7 @@ export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) 
                                         <p className="text-sm font-bold text-neutral-900 dark:text-white leading-tight">
                                             {uni.name}
                                         </p>
-                                        <p className="text-xs text-neutral-500 mt-0.5">Manually added • {uni.location}</p>
+                                        <p className="text-xs text-neutral-500 mt-0.5">Manually added • {uni.location || uni.district || 'Jharkhand'}</p>
                                     </div>
                                 </div>
                             )
@@ -269,14 +297,14 @@ export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) 
 
                     {/* Routing Note */}
                     <div>
-                        <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-2 uppercase tracking-wider">
-                            Routing Note (Optional)
+                        <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5 uppercase tracking-wider">
+                            Routing Brief & Terms (Optional)
                         </label>
                         <textarea
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
-                            placeholder="Add any specific instructions for the receiving institutions..."
-                            className="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none h-20"
+                            placeholder="Add specific directives, funding parameters, or problem constraints..."
+                            className="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none h-20 placeholder:text-neutral-400"
                         />
                     </div>
                 </div>
@@ -298,7 +326,7 @@ export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) 
                             disabled={selectedOrgIds.size === 0 || loadingMatches || (deadlineOption === 'custom' && !customDate)}
                             className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
-                            Confirm & Route
+                            Confirm & Route Challenge
                         </button>
                     </div>
                 </div>
