@@ -1,143 +1,228 @@
-import { useState } from 'react'
 import {
-    ChevronDown,
     MapPin,
     Building2,
-    TrendingUp,
-    TrendingDown,
-    Minus,
-    CheckCircle2,
     ShieldCheck,
-    Target
+    ArrowRight,
+    Sparkles,
+    GraduationCap,
+    Clock,
+    CheckCircle2,
+    Share2,
+    Users,
+    Check
 } from 'lucide-react'
 
-const PRIORITY_STYLES = {
-    85: { rank: 'bg-red-50 text-red-800', card: 'border-l-4 border-l-red-500' },
-    70: { rank: 'bg-orange-50 text-orange-800', card: 'border-l-4 border-l-orange-400' },
-    50: { rank: 'bg-blue-50 text-blue-800', card: 'border-l-4 border-l-blue-400' },
-    0:  { rank: 'bg-gray-100 text-gray-600', card: 'border-l-4 border-l-gray-300' },
+const getPriorityBadge = (score) => {
+    if (score >= 85) {
+        return {
+            label: `CRITICAL · ${score}`,
+            style: 'bg-rose-50 text-rose-700 border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50'
+        }
+    }
+    if (score >= 70) {
+        return {
+            label: `HIGH · ${score}`,
+            style: 'bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50'
+        }
+    }
+    if (score >= 50) {
+        return {
+            label: `MEDIUM · ${score}`,
+            style: 'bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/50'
+        }
+    }
+    return {
+        label: `LOW · ${score}`,
+        style: 'bg-neutral-100 text-neutral-600 border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700'
+    }
 }
 
-const getPriorityStyle = (score) => {
-    if (score >= 85) return PRIORITY_STYLES[85]
-    if (score >= 70) return PRIORITY_STYLES[70]
-    if (score >= 50) return PRIORITY_STYLES[50]
-    return PRIORITY_STYLES[0]
+const STATUS_CONFIG = {
+    pending_verification: {
+        label: 'Pending Verification',
+        badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/40',
+        nextActionLabel: 'Review Evidence → Verify',
+        nextActionType: 'verify'
+    },
+    verified: {
+        label: 'Verified',
+        badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/40',
+        nextActionLabel: 'Review Matches & Route',
+        nextActionType: 'route'
+    },
+    matches_suggested: {
+        label: 'Matches Suggested',
+        badge: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-900/40',
+        nextActionLabel: 'Select Universities → Route',
+        nextActionType: 'route'
+    },
+    ready_for_routing: {
+        label: 'Ready for Routing',
+        badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/40',
+        nextActionLabel: 'Route Challenge',
+        nextActionType: 'route'
+    },
+    routed: {
+        label: 'Routed',
+        badge: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-900/40',
+        nextActionLabel: 'Track Progress',
+        nextActionType: 'track'
+    },
+    in_project: {
+        label: 'Active Project',
+        badge: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-900/40',
+        nextActionLabel: 'View Project Workspace',
+        nextActionType: 'track'
+    },
+    resolved: {
+        label: 'Resolved',
+        badge: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-neutral-800 dark:text-gray-300 dark:border-neutral-700',
+        nextActionLabel: 'View Audit Dossier',
+        nextActionType: 'view'
+    }
 }
 
-const getSeverity = (score) => {
-    if (score >= 85) return { label: 'Critical', bg: 'bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400', dot: 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]' }
-    if (score >= 70) return { label: 'High',     bg: 'bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400', dot: 'bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.8)]' }
-    if (score >= 50) return { label: 'Medium',   bg: 'bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400', dot: 'bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.6)]' }
-    return { label: 'Low',      bg: 'bg-gray-500/10 border border-gray-500/30 text-gray-600 dark:text-gray-400', dot: 'bg-gray-400' }
-}
+export default function ChallengeCard({ challenge, rank, onToggle, onVerify }) {
+    const priority = getPriorityBadge(challenge.priority_score || 0)
+    const statusCfg = STATUS_CONFIG[challenge.status] || STATUS_CONFIG.pending_verification
 
-const STATUS_STYLES = {
-    pending_verification: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    verified: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    matches_suggested: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-    ready_for_routing: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    routed: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-    in_project: 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-    resolved: 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
-}
+    // University summary derivation
+    const matches = challenge.matches || []
+    const topMatch = matches.length > 0 ? matches[0] : null
+    const additionalMatches = matches.length > 1 ? matches.length - 1 : 0
 
-const STATUS_LABELS = {
-    pending_verification: 'Pending Verification',
-    verified: 'Verified',
-    matches_suggested: 'Matches Suggested',
-    ready_for_routing: 'Ready For Routing',
-    routed: 'Routed',
-    in_project: 'Active Project',
-    resolved: 'Resolved',
-}
-
-function TrendIcon({ trend }) {
-    if (trend === 'up') return <TrendingUp size={14} className="text-red-500" />
-    if (trend === 'down') return <TrendingDown size={14} className="text-emerald-600" />
-    return <Minus size={14} className="text-gray-400" />
-}
-
-export default function ChallengeCard({ challenge, rank, expanded, onToggle, onVerify }) {
-    const ps = getPriorityStyle(challenge.priority_score)
-    const sev = getSeverity(challenge.priority_score)
-    const liveStatusStyle = STATUS_STYLES[challenge.status] || STATUS_STYLES.pending_verification
-    const liveStatusLabel = STATUS_LABELS[challenge.status] || challenge.status
+    const handleActionClick = (e) => {
+        e.stopPropagation()
+        if (onVerify) {
+            onVerify(challenge)
+        }
+    }
 
     return (
-        <div className={`flex flex-col bg-white dark:bg-neutral-800 rounded-xl overflow-hidden shadow-sm border border-neutral-200 dark:border-neutral-700 ${ps.card} transition-all duration-300 h-full`}>
-            {/* ── Card body ── */}
-            <div className="p-4 relative flex flex-col flex-1">
-                <div className={`absolute top-0 left-0 w-7 h-7 flex items-center justify-center text-[11px] font-semibold rounded-br-lg ${ps.rank}`}>
-                    #{rank}
-                </div>
-
-                <div className="pl-6 flex flex-col flex-1 gap-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                            <span className="font-mono text-[10px] bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded">
-                                {challenge.id}
-                            </span>
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide ${sev.bg}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sev.dot}`} />
-                                {sev.label} • {challenge.priority_score}
-                            </span>
-                        </div>
-                        <span className={`inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${liveStatusStyle}`}>
-                            {liveStatusLabel}
+        <div
+            onClick={onToggle}
+            className="group relative flex flex-col justify-between bg-white dark:bg-neutral-900/90 rounded-xl border border-neutral-200/90 dark:border-neutral-800/90 hover:border-blue-500/50 dark:hover:border-blue-500/40 shadow-2xs hover:shadow-lg hover:shadow-blue-500/5 dark:hover:shadow-blue-500/10 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden h-full"
+        >
+            {/* ── Top Header Bar ── */}
+            <div className="p-4 pb-2.5">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800/80">
+                            #{rank}
+                        </span>
+                        <span className="font-mono text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">
+                            {challenge.id?.slice(0, 13)}
                         </span>
                     </div>
-
-                    <p className="text-[15px] font-bold text-neutral-900 dark:text-white leading-snug line-clamp-2 mt-1">
-                        {challenge.title}
-                    </p>
-                    <p className="text-[12.5px] text-neutral-600 dark:text-neutral-400 leading-relaxed line-clamp-2 flex-1 mt-1">
-                        {challenge.description}
-                    </p>
-
-                    <div className="flex flex-wrap gap-1.5 pt-2">
-                        <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md border border-blue-200/50 dark:border-blue-700/30">
-                            <Building2 size={12} />
-                            {challenge.department || challenge.domain || 'General'}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-700">
-                            <MapPin size={12} />
-                            {(challenge.location || 'Jharkhand').split(',')[0]}
+                    <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border tracking-wide uppercase ${priority.style}`}>
+                            {priority.label}
                         </span>
                     </div>
                 </div>
-            </div>
 
-            {/* ── Stats row ── */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-t border-neutral-100 dark:border-neutral-700/50 bg-neutral-50/50 dark:bg-neutral-800/30 flex-shrink-0">
-                <div className="flex gap-4">
-                    <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">Evidence</span>
-                        <div className="flex items-center gap-2 text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
-                            {challenge.source_counts?.social > 0 && <span>{challenge.source_counts.social} Social</span>}
-                            {challenge.source_counts?.citizen > 0 && <span>• {challenge.source_counts.citizen} Citizen</span>}
-                            {challenge.source_counts?.ngo > 0 && <span>• {challenge.source_counts.ngo} NGO</span>}
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="flex flex-col text-right">
-                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">AI Analysis</span>
-                    <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
-                        Confidence {Math.round((challenge.ai_confidence || 0) * 100)}%
+                {/* ── Title & Description ── */}
+                <h3 className="text-[14.5px] font-bold text-neutral-900 dark:text-white leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">
+                    {challenge.title}
+                </h3>
+                <p className="text-[12px] text-neutral-500 dark:text-neutral-400 leading-relaxed mt-1 line-clamp-2">
+                    {challenge.description || challenge.official_description}
+                </p>
+
+                {/* ── Location & Domain Tags ── */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                    <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded border border-neutral-200/60 dark:border-neutral-700/60">
+                        <Building2 size={11} className="text-neutral-400" />
+                        {challenge.domain || challenge.department || 'General'}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded border border-neutral-200/60 dark:border-neutral-700/60">
+                        <MapPin size={11} className="text-neutral-400" />
+                        {(challenge.location || 'Jharkhand').split(',')[0]}
+                    </span>
+                    <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border uppercase ml-auto ${statusCfg.badge}`}>
+                        {statusCfg.label}
                     </span>
                 </div>
             </div>
 
-            {/* ── Expand toggle ── */}
-            <button
-                onClick={onToggle}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10 hover:bg-blue-100/60 dark:hover:bg-blue-900/30 border-t border-neutral-100 dark:border-neutral-700/50 transition-colors flex-shrink-0"
-            >
-                <ChevronDown size={14} className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
-                {expanded ? 'Hide details' : 'View Action Details'}
-            </button>
+            {/* ── Mid Section: Evidence & Intelligence Signals ── */}
+            <div className="px-4 py-2.5 bg-neutral-50/70 dark:bg-neutral-800/40 border-t border-neutral-100 dark:border-neutral-800/60 flex items-center justify-between text-[11px]">
+                <div className="flex items-center gap-3 text-neutral-600 dark:text-neutral-300 font-medium">
+                    <span className="flex items-center gap-1">
+                        <Share2 size={11} className="text-blue-500" />
+                        <span>{challenge.source_counts?.social || 0}</span>
+                        <span className="text-neutral-400 text-[10px]">Social</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <Users size={11} className="text-emerald-500" />
+                        <span>{challenge.source_counts?.citizen || challenge.complaint_count || 1}</span>
+                        <span className="text-neutral-400 text-[10px]">Citizen</span>
+                    </span>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
+                    <Sparkles size={11} className="text-indigo-500" />
+                    <span>AI Conf. {Math.round((challenge.ai_confidence || 0.92) * 100)}%</span>
+                </div>
+            </div>
 
+            {/* ── Compact University Match Info (State-Driven) ── */}
+            {topMatch ? (
+                <div className="px-4 py-2 bg-blue-50/40 dark:bg-blue-950/20 border-t border-blue-100/60 dark:border-blue-900/30 flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5 truncate mr-2">
+                        <GraduationCap size={13} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                        <span className="font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+                            {topMatch.organization?.name || "Matched Partner"}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="font-bold text-blue-700 dark:text-blue-300">
+                            {topMatch.match_score}%
+                        </span>
+                        {additionalMatches > 0 && (
+                            <span className="text-[10px] text-neutral-400 font-medium">
+                                +{additionalMatches} more
+                            </span>
+                        )}
+                    </div>
+                </div>
+            ) : challenge.status === 'routed' && challenge.active_deadline ? (
+                <div className="px-4 py-2 bg-indigo-50/40 dark:bg-indigo-950/20 border-t border-indigo-100/60 dark:border-indigo-900/30 flex items-center justify-between text-[11px]">
+                    <span className="flex items-center gap-1.5 font-medium text-indigo-800 dark:text-indigo-200">
+                        <Clock size={12} className="text-indigo-500" />
+                        Routed to Universities
+                    </span>
+                    <span className="text-[10.5px] font-semibold text-indigo-700 dark:text-indigo-300">
+                        Deadline: {new Date(challenge.active_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                </div>
+            ) : null}
+
+            {/* ── Action Footer: Next Action Callout ── */}
+            <div className="px-4 py-2.5 border-t border-neutral-100 dark:border-neutral-800/80 bg-white dark:bg-neutral-900 flex items-center justify-between">
+                <div className="flex flex-col">
+                    <span className="text-[9.5px] font-bold uppercase tracking-wider text-neutral-400">
+                        Next Action
+                    </span>
+                    <span className="text-[11.5px] font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1">
+                        {statusCfg.nextActionLabel}
+                    </span>
+                </div>
+                <button
+                    onClick={handleActionClick}
+                    className={`
+                        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-2xs
+                        ${statusCfg.nextActionType === 'verify'
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20'
+                        }
+                    `}
+                >
+                    {statusCfg.nextActionType === 'verify' && <ShieldCheck size={12} />}
+                    {statusCfg.nextActionType === 'route' && <ArrowRight size={12} />}
+                    {statusCfg.nextActionType === 'track' && <Check size={12} />}
+                    <span>Proceed</span>
+                </button>
+            </div>
         </div>
     )
 }
