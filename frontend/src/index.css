@@ -13,7 +13,7 @@
 @keyframes fade-in-up {
   0% {
     opacity: 0;
-    transform: translateY(15px);
+    transform: translateY(12px);
   }
   100% {
     opacity: 1;
@@ -21,14 +21,50 @@
   }
 }
 
+@keyframes slide-in-right {
+  0% {
+    transform: translateX(100%);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-modal-pop {
+  animation: modal-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* ── Theme transition — smooth on toggle ─────────────────────── */
 *, *::before, *::after {
   transition-property: background-color, border-color, color, fill, stroke;
-  transition-duration: 200ms;
-  transition-timing-function: ease;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
-/* but don't slow down transforms/animations */
-.animate-fade-in-up, canvas, svg * {
+/* don't slow down transforms/animations */
+.animate-fade-in-up, .animate-slide-in-right, .animate-modal-pop, canvas, svg * {
   transition: none !important;
 }
 
@@ -45,8 +81,25 @@ body {
 }
 
 /* Stagger animations for children */
-.animate-stagger-1 { animation-delay: 100ms; opacity: 0; }
-.animate-stagger-2 { animation-delay: 200ms; opacity: 0; }
-.animate-stagger-3 { animation-delay: 300ms; opacity: 0; }
-.animate-stagger-4 { animation-delay: 400ms; opacity: 0; }
-.animate-stagger-5 { animation-delay: 500ms; opacity: 0; }
+.animate-stagger-1 { animation-delay: 50ms; opacity: 0; }
+.animate-stagger-2 { animation-delay: 100ms; opacity: 0; }
+.animate-stagger-3 { animation-delay: 150ms; opacity: 0; }
+.animate-stagger-4 { animation-delay: 200ms; opacity: 0; }
+.animate-stagger-5 { animation-delay: 250ms; opacity: 0; }
+.animate-stagger-6 { animation-delay: 300ms; opacity: 0; }
+
+/* Custom refined scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.7);
+}
