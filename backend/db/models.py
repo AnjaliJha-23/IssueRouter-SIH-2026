@@ -14,6 +14,15 @@ class Organization(Base):
     type = Column(String, nullable=False) # e.g., 'Gov', 'University', 'Industry'
     location = Column(String, nullable=True)
     
+    # New fields for University Directory
+    district = Column(String, nullable=True)
+    research_domains = Column(String, nullable=True)
+    research_specializations = Column(String, nullable=True)
+    research_output = Column(Text, nullable=True)
+    status = Column(String, default="ACTIVE") # ACTIVE, INACTIVE, PENDING_REVIEW
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
     users = relationship("User", back_populates="organization")
     matches = relationship("Match", back_populates="organization")
 
@@ -28,7 +37,7 @@ class User(Base):
     org_id = Column(String, ForeignKey("organizations.id"), nullable=True)
 
     organization = relationship("Organization", back_populates="users")
-    challenges = relationship("Challenge", back_populates="creator")
+    challenges = relationship("Challenge", foreign_keys="[Challenge.created_by]", back_populates="creator")
 
 class Challenge(Base):
     __tablename__ = "challenges"
@@ -57,9 +66,16 @@ class Challenge(Base):
     trend = Column(String, default="stable")
     verified = Column(Boolean, default=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=True)
+    verified_by = Column(String, ForeignKey("users.id"), nullable=True)
+    verified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    creator = relationship("User", back_populates="challenges")
+    @property
+    def description(self):
+        return self.official_description or self.ai_generated_summary or ""
+
+
+    creator = relationship("User", foreign_keys=[created_by], back_populates="challenges")
     matches = relationship("Match", back_populates="challenge")
     project = relationship("Project", back_populates="challenge", uselist=False)
     
@@ -130,12 +146,49 @@ class Project(Base):
 
     id = Column(String, primary_key=True, index=True)
     challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False, unique=True)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=True)
     status = Column(String, default="prototype")
     milestones_json = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     challenge = relationship("Challenge", back_populates="project")
+    organization = relationship("Organization")
+    proposal = relationship("Proposal", back_populates="project", uselist=False)
 
+class Proposal(Base):
+    __tablename__ = "proposals"
+
+    id = Column(String, primary_key=True, index=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False, unique=True)
+    challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=False)
+
+    title = Column(String, nullable=False)
+    problem_understanding = Column(Text, nullable=True)
+    proposed_solution = Column(Text, nullable=False)
+    approach_methodology = Column(Text, nullable=True)
+    trl = Column(String, default="TRL-6 (Field Pilot Ready)")
+    budget_required = Column(String, nullable=False)
+    budget_num = Column(Integer, nullable=False)
+    impact_metrics = Column(Text, nullable=True)
+    timeline = Column(String, nullable=True)
+    resources_needed = Column(Text, nullable=True)
+    faculty_lead = Column(String, nullable=True)
+    contact_email = Column(String, nullable=True)
+    team_members = Column(Text, nullable=True)
+    evidence_research = Column(Text, nullable=True)
+
+    status = Column(String, default="submitted") # draft, submitted, under_review, accepted
+    funding_status = Column(String, default="Open for Funding") # Open for Funding, Partially Funded, Funded
+    collaboration_status = Column(String, default="Seeking Industry Partner") # Seeking Industry Partner, In Discussions, Partnered
+    funds_committed = Column(Integer, default=0)
+    partners = Column(JSON, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = relationship("Project", back_populates="proposal")
+    challenge = relationship("Challenge")
+    organization = relationship("Organization")
 
 class Cluster(Base):
     __tablename__ = "clusters"
@@ -168,3 +221,29 @@ class Tweet(Base):
     text       = Column(Text, nullable=False)
 
     cluster = relationship("Cluster", back_populates="tweets")
+
+class RoutingBatch(Base):
+    __tablename__ = "routing_batches"
+    
+    id = Column(String, primary_key=True, index=True)
+    challenge_id = Column(String, ForeignKey("challenges.id"), nullable=False)
+    deadline = Column(DateTime, nullable=False)
+    note = Column(Text, nullable=True)
+    status = Column(String, default="active") # active | completed | expired
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    challenge = relationship("Challenge")
+    invitations = relationship("RoutingInvitation", back_populates="batch")
+
+class RoutingInvitation(Base):
+    __tablename__ = "routing_invitations"
+    
+    id = Column(String, primary_key=True, index=True)
+    batch_id = Column(String, ForeignKey("routing_batches.id"), nullable=False)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=False)
+    status = Column(String, default="pending") # pending | accepted | rejected | expired | closed
+    responded_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    batch = relationship("RoutingBatch", back_populates="invitations")
+    organization = relationship("Organization")

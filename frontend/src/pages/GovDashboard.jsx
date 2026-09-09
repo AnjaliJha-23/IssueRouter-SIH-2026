@@ -25,17 +25,34 @@ const LOAD_MORE_COUNT = 9
 
 function SkeletonCard() {
   return (
-    <div className="glass-panel p-4 flex flex-col gap-3 animate-pulse border border-neutral-200 dark:border-neutral-700 rounded-xl h-48">
-      <div className="flex gap-3 items-start">
-        <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
-        <div className="flex-1 space-y-2">
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-          <div className="h-2.5 bg-gray-100 dark:bg-gray-700/50 rounded w-1/2" />
+    <div className="bg-white dark:bg-neutral-900/90 rounded-xl border border-neutral-200/80 dark:border-neutral-800 p-4 flex flex-col justify-between h-[230px] animate-pulse">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-4 rounded bg-neutral-200 dark:bg-neutral-800" />
+            <div className="w-20 h-4 rounded bg-neutral-200 dark:bg-neutral-800" />
+          </div>
+          <div className="w-24 h-5 rounded-full bg-neutral-200 dark:bg-neutral-800" />
+        </div>
+        <div className="space-y-1.5">
+          <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-5/6" />
+          <div className="h-3 bg-neutral-100 dark:bg-neutral-800/60 rounded w-full" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          <div className="w-16 h-5 rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div className="w-20 h-5 rounded bg-neutral-200 dark:bg-neutral-800" />
         </div>
       </div>
-      <div className="space-y-1.5 mt-4">
-        <div className="h-2 bg-gray-100 dark:bg-gray-700/50 rounded w-full" />
-        <div className="h-2 bg-gray-100 dark:bg-gray-700/50 rounded w-5/6" />
+
+      <div className="space-y-2.5 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+        <div className="flex justify-between items-center">
+          <div className="w-28 h-3.5 rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div className="w-16 h-3.5 rounded bg-neutral-200 dark:bg-neutral-800" />
+        </div>
+        <div className="flex justify-between items-center pt-1">
+          <div className="w-32 h-4 rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div className="w-20 h-6 rounded-lg bg-neutral-200 dark:bg-neutral-800" />
+        </div>
       </div>
     </div>
   )
@@ -147,12 +164,12 @@ export default function GovDashboard() {
     }
   }
 
-  const handleConfirmRoute = async (id, orgId, note) => {
+  const handleConfirmRoute = async (id, orgIds, deadline, note) => {
     try {
         const res = await fetch(`http://localhost:8000/api/challenges/${id}/route`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ org_id: orgId, note })
+            body: JSON.stringify({ org_ids: orgIds, deadline, note })
         });
         if (res.ok) {
             setRoutingChallenge(null);
@@ -244,15 +261,15 @@ export default function GovDashboard() {
               key={key}
               onClick={() => { setStatusFilter(key); setVisibleCount(INITIAL_VISIBLE) }}
               className={`
-                text-[12px] px-3.5 py-1.5 rounded-full border transition-colors font-medium
+                text-[12px] px-4 py-1.5 rounded-full border transition-all duration-150 font-semibold cursor-pointer active:scale-[0.97]
                 ${statusFilter === key
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-xs shadow-blue-600/25'
+                  : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-750'
                 }
               `}
             >
               {label}
-              <span className={`ml-1.5 text-[11px] ${statusFilter === key ? 'opacity-90 text-blue-100' : 'text-gray-400'}`}>
+              <span className={`ml-1.5 text-[11px] font-bold px-1.5 py-0.2 rounded-full ${statusFilter === key ? 'bg-white/20 text-white' : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400'}`}>
                 {key === 'all' ? counts.total : counts[key]}
               </span>
             </button>
@@ -277,10 +294,24 @@ export default function GovDashboard() {
           {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-neutral-800/50">
-          <p className="text-sm text-gray-400 dark:text-gray-500">
-            No challenges match the current filters.
-          </p>
+        <div className="text-center py-16 px-4 border border-dashed border-neutral-200 dark:border-neutral-700/80 rounded-2xl bg-white/40 dark:bg-neutral-900/40 space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-full bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <Layers size={22} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-200">
+              No Civic Challenges Found
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-sm mx-auto">
+              No challenges match your selected domain, district, or priority filters. Adjust filters to inspect the statewide backlog.
+            </p>
+          </div>
+          <button
+            onClick={() => { setFilters(DEFAULT_FILTERS); setStatusFilter('all'); }}
+            className="px-4 py-2 text-xs font-bold rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 transition-colors"
+          >
+            Reset All Filters
+          </button>
         </div>
       ) : (
         <>

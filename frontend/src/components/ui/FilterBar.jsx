@@ -38,51 +38,51 @@ export default function FilterBar({ filters, onChange }) {
         onChange({ search: '', domain: '', district: '', priority: '' })
 
     const baseSelect = `
-    w-full h-[34px] pl-2.5 pr-7 text-[12px] appearance-none
-    bg-gray-100 dark:bg-gray-700
-    border border-transparent rounded-lg outline-none
-    text-gray-700 dark:text-gray-200
-    focus:border-indigo-400 focus:bg-white dark:focus:bg-gray-900
-    transition-colors cursor-pointer
+    w-full h-[36px] pl-3 pr-8 text-[12.5px] appearance-none
+    bg-neutral-50 dark:bg-neutral-800/90
+    border border-neutral-200 dark:border-neutral-700 rounded-lg outline-none
+    text-neutral-700 dark:text-neutral-200 font-medium
+    focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-neutral-900
+    transition-all cursor-pointer
   `
 
     return (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3.5 space-y-3">
+        <div className="bg-white dark:bg-neutral-900/80 backdrop-blur-md border border-neutral-200/80 dark:border-neutral-800 rounded-xl p-4 shadow-sm space-y-3">
 
             {/* ── Filter inputs row ──────────────────── */}
             <div className="flex flex-wrap gap-3 items-end">
 
                 {/* Search */}
-                <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                        Search challenge
+                <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                        Search Challenges
                     </span>
                     <div className="relative">
                         <Search
-                            size={13}
-                            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
+                            size={14}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 pointer-events-none"
                         />
                         <input
                             type="text"
                             value={search || ''}
                             onChange={(e) => set('search', e.target.value)}
-                            placeholder="Problem, location, challenge ID..."
+                            placeholder="Search by problem, location, or ID..."
                             className="
-                w-full h-[34px] pl-8 pr-3 text-[12px]
-                bg-gray-100 dark:bg-gray-700
-                border border-transparent rounded-lg outline-none
-                text-gray-700 dark:text-gray-200
-                placeholder:text-gray-400 dark:placeholder:text-gray-500
-                focus:border-indigo-400 focus:bg-white dark:focus:bg-gray-900
-                transition-colors
-              "
+                                w-full h-[36px] pl-9 pr-3 text-[12.5px]
+                                bg-neutral-50 dark:bg-neutral-800/90
+                                border border-neutral-200 dark:border-neutral-700 rounded-lg outline-none
+                                text-neutral-800 dark:text-neutral-200
+                                placeholder:text-neutral-400 dark:placeholder:text-neutral-500
+                                focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-neutral-900
+                                transition-all
+                            "
                         />
                     </div>
                 </div>
 
                 {/* Domain */}
-                <div className="flex flex-col gap-1 min-w-[140px]">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                <div className="flex flex-col gap-1.5 min-w-[150px]">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
                         Domain
                     </span>
                     <SelectWrapper>
@@ -100,8 +100,8 @@ export default function FilterBar({ filters, onChange }) {
                 </div>
 
                 {/* District */}
-                <div className="flex flex-col gap-1 min-w-[140px]">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                <div className="flex flex-col gap-1.5 min-w-[150px]">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
                         District
                     </span>
                     <SelectWrapper>
@@ -119,9 +119,9 @@ export default function FilterBar({ filters, onChange }) {
                 </div>
 
                 {/* Priority */}
-                <div className="flex flex-col gap-1 min-w-[120px]">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                        Priority
+                <div className="flex flex-col gap-1.5 min-w-[140px]">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                        Priority Level
                     </span>
                     <SelectWrapper>
                         <select
@@ -129,7 +129,7 @@ export default function FilterBar({ filters, onChange }) {
                             onChange={(e) => set('priority', e.target.value)}
                             className={baseSelect}
                         >
-                            <option value="">All priorities</option>
+                            <option value="">All Priorities</option>
                             {PRIORITIES.map((p) => (
                                 <option key={p.value} value={p.value}>{p.label}</option>
                             ))}
@@ -142,12 +142,12 @@ export default function FilterBar({ filters, onChange }) {
                     <button
                         onClick={reset}
                         className="
-              h-[34px] px-3.5 text-[12px] self-end flex-shrink-0
-              border border-gray-200 dark:border-gray-600 rounded-lg
-              text-gray-500 dark:text-gray-400
-              hover:bg-gray-100 dark:hover:bg-gray-700
-              transition-colors
-            "
+                            h-[36px] px-3.5 text-[12px] font-semibold self-end flex-shrink-0
+                            border border-neutral-200 dark:border-neutral-700 rounded-lg
+                            text-neutral-600 dark:text-neutral-300
+                            hover:bg-neutral-100 dark:hover:bg-neutral-800
+                            transition-colors
+                        "
                     >
                         Clear all
                     </button>
@@ -156,18 +156,21 @@ export default function FilterBar({ filters, onChange }) {
 
             {/* ── Active filter chips ────────────────── */}
             {activeChips.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-neutral-100 dark:border-neutral-800">
+                    <span className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500 self-center">
+                        Active Filters:
+                    </span>
                     {activeChips.map(({ label, key }) => (
                         <span
                             key={key}
-                            className="inline-flex items-center gap-1.5 text-[11px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 pl-2.5 pr-1.5 py-1 rounded-full"
+                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 pl-2.5 pr-1.5 py-1 rounded-md border border-blue-200/60 dark:border-blue-900/40 shadow-2xs"
                         >
                             {label}
                             <button
                                 onClick={() => set(key, '')}
-                                className="hover:text-indigo-900 dark:hover:text-indigo-100 transition-colors"
+                                className="hover:text-blue-950 dark:hover:text-white transition-colors"
                             >
-                                <X size={11} />
+                                <X size={12} />
                             </button>
                         </span>
                     ))}

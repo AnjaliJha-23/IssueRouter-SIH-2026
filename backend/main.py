@@ -15,6 +15,7 @@ from api.smart_router import router as smart_router
 from api.projects import router as projects_router
 from api.stats import router as stats_router
 from api.proposals import router as proposals_router
+from api.universities import router as universities_router
 
 # ── App ────────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -42,12 +43,22 @@ app.include_router(smart_router)
 app.include_router(projects_router)
 app.include_router(stats_router)
 app.include_router(proposals_router)
+app.include_router(universities_router)
 
 # ── Startup: create DB tables ──────────────────────────────────────────────
 @app.on_event("startup")
 def startup_event():
     print("[IssueRouter-SIH] Creating DB tables if not exist…")
     Base.metadata.create_all(bind=engine)
+    try:
+        with engine.connect() as conn:
+            cols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(projects)").fetchall()]
+            if "org_id" not in cols:
+                conn.exec_driver_sql("ALTER TABLE projects ADD COLUMN org_id VARCHAR REFERENCES organizations(id)")
+                conn.commit()
+                print("[IssueRouter-SIH] Migrated projects table: added org_id column.")
+    except Exception as e:
+        print("[IssueRouter-SIH] Startup column check notice:", e)
     print("[IssueRouter-SIH] DB ready.")
 
 # ── Health check ───────────────────────────────────────────────────────────

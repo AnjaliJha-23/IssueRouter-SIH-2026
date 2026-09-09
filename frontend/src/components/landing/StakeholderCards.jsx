@@ -1,10 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { stakeholderRoles } from '../../data/landingData'
-import { Landmark, GraduationCap, Factory, Users, Shield, ArrowRight } from 'lucide-react'
+import { Building2, GraduationCap, Factory, Users, ArrowRight } from 'lucide-react'
 
 const ICON_MAP = {
-  Landmark,
+  Building2,
   GraduationCap,
   Factory,
   Users,
@@ -23,83 +23,68 @@ export default function StakeholderCards() {
   }
 
   return (
-    <section id="stakeholders" className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-        <div>
-          <div className="text-[11px] font-bold tracking-wider uppercase text-blue-700 dark:text-blue-400">
-            Multi-Stakeholder Federation
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
-            One Platform. Every Stakeholder.
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 max-w-2xl">
-            Choose your institutional role to enter the authenticated workspace, unlock specialized governance privileges, or submit ground-truth challenge data.
-          </p>
-        </div>
-
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-semibold text-slate-700 dark:text-slate-300 self-start md:self-auto">
-          <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-          <span>DigiLocker & National SSO Federated</span>
-        </div>
+    <section id="roles" className="py-16 md:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      {/* Section Header */}
+      <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#0b1c30] dark:text-white tracking-tight font-heading">
+          Choose Your Role to Continue
+        </h2>
+        <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
+          Select your ecosystem role to access dedicated tools, challenge feeds, and resource pipelines.
+        </p>
       </div>
 
       {/* 4 Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stakeholderRoles.map((role) => {
-          const IconComponent = ICON_MAP[role.icon] || Landmark
+          const IconComponent = ICON_MAP[role.icon] || Building2
 
           return (
             <div
               key={role.id}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between"
+              onClick={() => handleRoleAction(role)}
+              className={`group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 ${role.accentBorder} border-t-4 p-6 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer hover:-translate-y-1`}
             >
               <div>
-                {/* Header Icon + Role Badge */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${role.iconBg}`}>
-                    <IconComponent className="w-5 h-5" />
+                {/* Top Icon */}
+                <div className="mb-5">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${role.iconBg}`}>
+                    <IconComponent className="w-6 h-6" />
                   </div>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded border ${role.badgeStyle}`}>
-                    {role.badge}
-                  </span>
                 </div>
 
-                {/* Role Title & Mandate */}
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                {/* Role Title */}
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2.5 font-heading">
                   {role.title}
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed min-h-[60px]">
+
+                {/* Description */}
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed min-h-[64px]">
                   {role.desc}
                 </p>
 
-                {/* Stats Container */}
-                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-750 rounded-lg space-y-1.5">
-                  {role.stats.map((st, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500 dark:text-slate-400">{st.label}:</span>
-                      <span className={`font-bold tabular-nums ${st.highlight ? 'text-blue-700 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'}`}>
-                        {st.value}
-                      </span>
-                    </div>
-                  ))}
+                {/* Status / Category Badge with Indicator Dot */}
+                <div className="mt-4 pt-1">
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${role.badgeStyle}`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
+                    <span>{role.badge}</span>
+                  </span>
                 </div>
               </div>
 
-              {/* Action Link / Button */}
-              <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  onClick={() => handleRoleAction(role)}
-                  className={`w-full inline-flex items-center justify-between text-xs font-bold py-1.5 transition-colors group ${role.ctaColor}`}
-                >
+              {/* Action Link / CTA Button */}
+              <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className={`inline-flex items-center gap-1 text-xs sm:text-sm font-bold ${role.accentColor} transition-colors group-hover:gap-2`}>
                   <span>{role.ctaText}</span>
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </button>
+                </div>
               </div>
+
             </div>
           )
         })}
       </div>
+
     </section>
   )
 }
