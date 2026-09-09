@@ -67,6 +67,7 @@ out/
 *.sqlite
 *.sqlite3
 
-# Uploaded evidence files
-backend/uploads/
+# User Uploads & Media
+uploads/
+**/uploads/
 
