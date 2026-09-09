@@ -1,9 +1,10 @@
+import os
 from transformers import pipeline as hf_pipeline
 from pipeline.config import DOMAINS, SUBDOMAIN_MAP, CLASSIFICATION_THRESHOLDS
 
 # Load once at module level — never reload during demo
 _classifier = None
-MODEL_VERSION = "facebook/bart-large-mnli"
+MODEL_VERSION = os.getenv("CLASSIFICATION_MODEL", "facebook/bart-large-mnli")
 
 def load_classifier():
     global _classifier

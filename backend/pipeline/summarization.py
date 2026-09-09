@@ -52,9 +52,10 @@ Location: {location}
 New Evidence: {new_evidence_text}
 """
 
+    model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model=model_name,
             max_tokens=150,
             response_format={"type": "json_object"},
             messages=[{"role": "user", "content": prompt}],

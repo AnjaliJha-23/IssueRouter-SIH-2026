@@ -16,7 +16,10 @@ def load_ner():
     global _nlp, _gazetteer
     if _nlp is None:
         print("[location_extraction] Loading spaCy model...")
-        _nlp = spacy.load("en_core_web_sm")
+        try:
+            _nlp = spacy.load("en_core_web_sm")
+        except Exception:
+            _nlp = spacy.blank("en")
         
         load_gazetteer()
         
@@ -27,8 +30,12 @@ def load_ner():
             for block in blocks:
                 patterns.append({"label": "BLOCK", "pattern": block})
                 
-        ruler = _nlp.add_pipe("entity_ruler", before="ner")
-        ruler.add_patterns(patterns)
+        if "entity_ruler" not in _nlp.pipe_names:
+            if "ner" in _nlp.pipe_names:
+                ruler = _nlp.add_pipe("entity_ruler", before="ner")
+            else:
+                ruler = _nlp.add_pipe("entity_ruler")
+            ruler.add_patterns(patterns)
         print("[location_extraction] spaCy model loaded.")
 
 def extract_entities(text: str, evidence_metadata: dict = None) -> dict:
@@ -59,6 +66,13 @@ def extract_entities(text: str, evidence_metadata: dict = None) -> dict:
             block = ent.text
             resolution_method = "gazetteer_match"
             confidence = 0.85
+
+    # Infer district from gazetteer if block was detected
+    if block is not None and district is None:
+        for d, b_list in _gazetteer.items():
+            if block in b_list or block.lower() in [b.lower() for b in b_list]:
+                district = d
+                break
 
     # 2. Fallback to substring if no EntityRuler match found
     if district is None and block is None:
