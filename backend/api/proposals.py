@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from db.database import get_db
@@ -395,12 +395,12 @@ UNIVERSITY_SOLUTIONS_MAP = {
 }
 
 class ResearchReportOut(BaseModel):
-    abstract: str
-    technical_architecture: str
+    abstract: str = "Technical feasibility report and pilot deployment dossier."
+    technical_architecture: str = "Field-deployed architecture engineered for regional civic infrastructure."
     tech_stack: List[str] = []
     key_innovations: List[str] = []
-    jharkhand_deployment_plan: str
-    validation_data: str
+    jharkhand_deployment_plan: str = "Phased field trials across targeted districts in Jharkhand."
+    validation_data: str = "Validated through institutional bench tests and department trials."
     budget_breakdown: List[Dict[str, str]] = []
     timeline_phases: List[Dict[str, str]] = []
     ip_and_publications: Optional[str] = None
@@ -415,9 +415,9 @@ class ProposalOut(BaseModel):
     location: str
     priority_score: int
     complaint_count: int
-    solution_summary: str
-    proposed_solution: str  # alias for backward-compatibility
-    research_report: ResearchReportOut
+    solution_summary: str = ""
+    proposed_solution: str = ""  # alias for backward-compatibility
+    research_report: ResearchReportOut = Field(default_factory=ResearchReportOut)
     university: str
     faculty_lead: str
     contact_email: str
@@ -518,23 +518,64 @@ def _proposal_from_db(p: Proposal) -> Dict[str, Any]:
     funds_committed = overrides.get("funds_committed", p.funds_committed or 0)
     partners = overrides.get("partners", p.partners or [])
 
+    domain = (c.domain if c else None) or "HealthTech"
+    loc = (c.location if c else None) or "Jharkhand"
+    summary_text = p.proposed_solution or p.problem_understanding or "Comprehensive university solution engineered for regional civic infrastructure."
+
+    b_num = p.budget_num or 500000
+    hw_cost = int(b_num * 0.45)
+    field_cost = int(b_num * 0.35)
+    cloud_cost = max(0, b_num - hw_cost - field_cost)
+
+    tech_stack = [domain, "IoT Telemetry", "Civic Dashboard", "Edge Sensor Nodes", "FastAPI Secure Relay"]
+    if p.resources_needed:
+        custom_items = [item.strip() for item in p.resources_needed.replace("\n", ",").split(",") if item.strip()]
+        if custom_items:
+            tech_stack = custom_items[:5]
+
+    research_report = {
+        "abstract": p.problem_understanding or f"Engineering solution designed to resolve {c.title if c else 'civic challenge'} through institutional research and field-proven deployment.",
+        "technical_architecture": p.approach_methodology or p.proposed_solution or "Modular architecture with edge acquisition, real-time analytics, and automated alerting protocols.",
+        "tech_stack": tech_stack,
+        "key_innovations": [
+            "Tailored specifically for local district operating environments and rural resilience",
+            p.impact_metrics or "Direct civic impact and sustainable maintenance model",
+            "University-led validation with continuous student and faculty technical governance"
+        ],
+        "jharkhand_deployment_plan": f"Pilot deployment targeted for {loc} region with district administration integration and phased rollout.",
+        "validation_data": p.evidence_research or "Prototype demonstrated and validated through university department benchmark testing.",
+        "budget_breakdown": [
+            {"item": "Core Hardware, Sensors & Fabrication", "cost": f"₹{hw_cost:,}"},
+            {"item": "Field Pilot & Community Implementation Kits", "cost": f"₹{field_cost:,}"},
+            {"item": "Cloud Telemetry, Monitoring & Handover", "cost": f"₹{cloud_cost:,}"}
+        ],
+        "timeline_phases": [
+            {"phase": "Phase 1 (Months 1-3)", "milestone": "Custom Hardware Assembly & Lab Safety Benchmark Tests"},
+            {"phase": "Phase 2 (Months 4-6)", "milestone": f"Deployment of Pilot Systems across {loc}"},
+            {"phase": "Phase 3 (Months 7-9)", "milestone": "Field Trial Evaluation & Community Handover"}
+        ],
+        "ip_and_publications": f"{uni_name} Research Dossier (SIH 2026)"
+    }
+
     return {
         "id": prop_id,
         "challenge_id": c.id if c else p.challenge_id,
         "problem": c.title if c else p.title,
         "department": (c.department if c else None) or "Public Infrastructure",
         "description": (c.description if c else None) or p.problem_understanding or "Civic challenge under university solution development.",
-        "domain": (c.domain if c else None) or "HealthTech",
-        "location": (c.location if c else None) or "Jharkhand",
+        "domain": domain,
+        "location": loc,
         "priority_score": (c.priority_score if c else 85),
         "complaint_count": (c.complaint_count if c else 50),
-        "proposed_solution": p.proposed_solution,
+        "solution_summary": summary_text,
+        "proposed_solution": summary_text,
+        "research_report": research_report,
         "university": uni_name,
         "faculty_lead": p.faculty_lead or "Dr. Faculty Lead",
         "contact_email": p.contact_email or "research@university.ac.in",
         "trl": p.trl or "TRL-6 (Field Pilot Ready)",
-        "budget_required": p.budget_required,
-        "budget_num": p.budget_num,
+        "budget_required": p.budget_required or f"₹{b_num:,}",
+        "budget_num": b_num,
         "impact_metrics": p.impact_metrics or "Empowers citizens and improves civic efficiency.",
         "funding_status": funding_status,
         "collaboration_status": collaboration_status,
