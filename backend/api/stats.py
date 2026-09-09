@@ -7,16 +7,20 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 
 from db.database import get_db
-from db.models import Challenge
+from db.models import Challenge, User
 from db.schemas import StatsOverviewOut, LocationsOut, LocationPointOut
+from api.auth import require_roles
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 @router.get("/overview", response_model=StatsOverviewOut)
-def overview(db: Session = Depends(get_db)):
-    """Overall platform statistics for SIH dashboard."""
+def overview(
+    current_user: User = Depends(require_roles("Gov", "University", "Industry")),
+    db: Session = Depends(get_db)
+):
+    """Overall platform statistics for authorized stakeholder dashboards."""
     total = db.query(func.count(Challenge.id)).scalar() or 0
-    pending = db.query(func.count(Challenge.id)).filter(Challenge.status == "pending").scalar() or 0
+    pending = db.query(func.count(Challenge.id)).filter(Challenge.status == "pending_verification").scalar() or 0
     matched = db.query(func.count(Challenge.id)).filter(Challenge.status == "matched").scalar() or 0
     in_project = db.query(func.count(Challenge.id)).filter(Challenge.status == "in_project").scalar() or 0
     resolved = db.query(func.count(Challenge.id)).filter(Challenge.status == "resolved").scalar() or 0
@@ -35,6 +39,7 @@ def overview(db: Session = Depends(get_db)):
 @router.get("/locations", response_model=LocationsOut)
 def locations(
     top: int = Query(15, ge=5, le=50, description="How many top locations to return"),
+    current_user: User = Depends(require_roles("Gov", "University", "Industry")),
     db: Session = Depends(get_db),
 ):
     """Top locations by challenge priority for the heatmap."""

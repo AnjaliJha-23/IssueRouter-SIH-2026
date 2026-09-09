@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { authFetch, getMediaUrl } from '../../api/client'
 import {
     X,
     MapPin,
@@ -75,7 +76,7 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
         if (!challenge?.id) return
         setLoadingMatches(true)
         try {
-            const res = await fetch(`http://localhost:8000/api/matches/generate/${challenge.id}`, { method: 'POST' })
+            const res = await authFetch(`/api/matches/generate/${challenge.id}`, { method: 'POST' })
             if (res.ok) {
                 const data = await res.json()
                 setMatches(data || [])
@@ -180,6 +181,47 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
                                         {challenge.official_description || challenge.description}
                                     </p>
                                 </div>
+
+                                {/* Attached Evidence Photos Preview */}
+                                {challenge.media_urls && challenge.media_urls.length > 0 && (
+                                    <div className="p-4 rounded-xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                                                <ImageIcon size={14} className="text-purple-600 dark:text-purple-400" />
+                                                <span>Attached Evidence Photos ({challenge.media_urls.length})</span>
+                                            </div>
+                                            <button 
+                                                onClick={() => setActiveTab('evidence')} 
+                                                className="text-xs font-semibold text-purple-700 dark:text-purple-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                                            >
+                                                View all evidence <ChevronRight size={13} />
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2.5">
+                                            {challenge.media_urls.map((url, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => setSelectedImage({ type: 'real', url, title: `Citizen Photo #${idx + 1}`, subtitle: challenge.location })}
+                                                    className="group relative aspect-video rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 cursor-pointer hover:border-purple-500 transition-all shadow-xs"
+                                                >
+                                                    <img 
+                                                        src={getMediaUrl(url)} 
+                                                        alt={`Evidence preview ${idx + 1}`} 
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                        onError={(e) => {
+                                                            if (!e.currentTarget.src.startsWith('http://localhost:8000')) {
+                                                                e.currentTarget.src = `http://localhost:8000${url.startsWith('/') ? url : '/' + url}`
+                                                            }
+                                                        }}
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                        <ZoomIn size={16} className="drop-shadow" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Metadata Grid */}
                                 <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/80 dark:border-neutral-800">
@@ -307,38 +349,90 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
                                 </div>
 
                                 {/* Image Evidence Gallery */}
-                                <div>
-                                    <p className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3">Ground Inspection Photographs</p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                        {EVIDENCE_IMAGES.map((img) => (
-                                            <div
-                                                key={img.id}
-                                                onClick={() => setSelectedImage(img)}
-                                                className={`group relative aspect-video rounded-xl bg-gradient-to-br ${img.gradient} border border-neutral-200 dark:border-neutral-700/80 p-3 flex flex-col justify-between overflow-hidden cursor-pointer hover:border-blue-500 transition-all shadow-sm`}
-                                            >
-                                                <div className="flex justify-between items-start">
-                                                    <span className="text-lg">{img.icon}</span>
-                                                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-black/40 text-white backdrop-blur-xs">
-                                                        {img.tag}
-                                                    </span>
+                                {challenge.media_urls && challenge.media_urls.length > 0 ? (
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                                                Citizen Submitted Evidence ({challenge.media_urls.length})
+                                            </p>
+                                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                                                <CheckCircle2 size={11} /> Authenticated Field Photos
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            {challenge.media_urls.map((url, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => setSelectedImage({ type: 'real', url, title: `Citizen Photo #${idx + 1}`, subtitle: challenge.location })}
+                                                    className="group relative aspect-video rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 cursor-pointer shadow-sm hover:border-blue-500 transition-all"
+                                                >
+                                                    <img 
+                                                        src={getMediaUrl(url)} 
+                                                        alt={`Citizen evidence ${idx + 1}`} 
+                                                        className="w-full h-full object-cover" 
+                                                        onError={(e) => {
+                                                            if (!e.currentTarget.src.startsWith('http://localhost:8000')) {
+                                                                e.currentTarget.src = `http://localhost:8000${url.startsWith('/') ? url : '/' + url}`
+                                                            }
+                                                        }}
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                        <ZoomIn size={18} className="drop-shadow" />
+                                                    </div>
+                                                    <div className="absolute top-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[9px] font-bold text-white uppercase tracking-wider">
+                                                        Citizen Photo #{idx + 1}
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-xs font-bold text-white leading-tight truncate">{img.title}</p>
-                                                    <p className="text-[10px] text-neutral-300 mt-0.5 truncate">{img.subtitle}</p>
-                                                </div>
-                                                <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <ZoomIn size={18} className="text-white drop-shadow" />
-                                                </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div>
+                                        <p className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3">Ground Inspection Photographs</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            {EVIDENCE_IMAGES.map((img) => (
+                                                <div
+                                                    key={img.id}
+                                                    onClick={() => setSelectedImage({ type: 'mock', ...img })}
+                                                    className={`group relative aspect-video rounded-xl bg-gradient-to-br ${img.gradient} border border-neutral-200 dark:border-neutral-700/80 p-3 flex flex-col justify-between overflow-hidden cursor-pointer hover:border-blue-500 transition-all shadow-sm`}
+                                                >
+                                                    <div className="flex justify-between items-start">
+                                                        <span className="text-lg">{img.icon}</span>
+                                                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-black/40 text-white backdrop-blur-xs">
+                                                            {img.tag}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-white leading-tight truncate">{img.title}</p>
+                                                        <p className="text-[10px] text-neutral-300 mt-0.5 truncate">{img.subtitle}</p>
+                                                    </div>
+                                                    <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <ZoomIn size={18} className="text-white drop-shadow" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
-                                {/* Lightbox Modal */}
+                                {/* Selected Image Quick Banner */}
                                 {selectedImage && (
                                     <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-neutral-800/80 flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <span className="text-2xl">{selectedImage.icon}</span>
+                                            {selectedImage.type === 'real' ? (
+                                                <img 
+                                                    src={getMediaUrl(selectedImage.url)} 
+                                                    alt={selectedImage.title} 
+                                                    className="w-16 h-12 object-cover rounded-lg border border-blue-200" 
+                                                    onError={(e) => {
+                                                        if (!e.currentTarget.src.startsWith('http://localhost:8000')) {
+                                                            e.currentTarget.src = `http://localhost:8000${selectedImage.url.startsWith('/') ? selectedImage.url : '/' + selectedImage.url}`
+                                                        }
+                                                    }}
+                                                />
+                                            ) : (
+                                                <span className="text-2xl">{selectedImage.icon}</span>
+                                            )}
                                             <div>
                                                 <p className="text-sm font-bold text-neutral-900 dark:text-white">{selectedImage.title}</p>
                                                 <p className="text-xs text-neutral-500">{selectedImage.subtitle} · Geotag verified</p>
@@ -346,7 +440,7 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
                                         </div>
                                         <button 
                                             onClick={() => setSelectedImage(null)}
-                                            className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-white px-2 py-1"
+                                            className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-white px-2 py-1 cursor-pointer"
                                         >
                                             Dismiss
                                         </button>
@@ -499,6 +593,68 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
 
                 </div>
             </div>
+
+            {/* ── Full-screen Photo Lightbox Modal ── */}
+            {selectedImage && (
+                <div 
+                    className="fixed inset-0 z-60 bg-black/90 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div 
+                        className="relative max-w-4xl max-h-[90vh] bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-5 py-3.5 bg-neutral-950/80 border-b border-neutral-800">
+                            <div className="flex items-center gap-2">
+                                <ImageIcon size={16} className="text-blue-400" />
+                                <span className="text-sm font-bold text-white">{selectedImage.title}</span>
+                                {selectedImage.subtitle && (
+                                    <span className="text-xs text-neutral-400">· {selectedImage.subtitle}</span>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setSelectedImage(null)}
+                                className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-4 flex items-center justify-center overflow-auto max-h-[75vh]">
+                            {selectedImage.type === 'real' ? (
+                                <img
+                                    src={getMediaUrl(selectedImage.url)}
+                                    alt={selectedImage.title}
+                                    className="max-h-[70vh] w-auto max-w-full object-contain rounded-lg shadow-md"
+                                    onError={(e) => {
+                                        if (!e.currentTarget.src.startsWith('http://localhost:8000')) {
+                                            e.currentTarget.src = `http://localhost:8000${selectedImage.url.startsWith('/') ? selectedImage.url : '/' + selectedImage.url}`
+                                        }
+                                    }}
+                                />
+                            ) : (
+                                <div className={`p-12 rounded-xl bg-gradient-to-br ${selectedImage.gradient} text-center space-y-3`}>
+                                    <span className="text-5xl">{selectedImage.icon}</span>
+                                    <p className="text-lg font-bold text-white">{selectedImage.title}</p>
+                                    <p className="text-sm text-neutral-300">{selectedImage.subtitle}</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="px-5 py-2.5 bg-neutral-950/80 border-t border-neutral-800 flex items-center justify-between text-xs text-neutral-400">
+                            <span>Geotag verified civic evidence</span>
+                            {selectedImage.type === 'real' && (
+                                <a 
+                                    href={selectedImage.url.startsWith('http') ? selectedImage.url : `http://localhost:8000${selectedImage.url.startsWith('/') ? selectedImage.url : '/' + selectedImage.url}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="text-blue-400 hover:underline flex items-center gap-1"
+                                >
+                                    Open original <ExternalLink size={12} />
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

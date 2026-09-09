@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { authFetch } from '../api/client'
 import { 
   Building, 
   CheckCircle2, 
@@ -36,9 +37,7 @@ export default function OrgDashboard() {
   const fetchAssignments = async () => {
     setLoadingAssignments(true)
     try {
-      const res = await fetch(`/api/challenges/assignments?org_id=${currentOrgId}`).catch(() => 
-        fetch(`http://localhost:8000/api/challenges/assignments?org_id=${currentOrgId}`)
-      )
+      const res = await authFetch(`/api/challenges/assignments?org_id=${currentOrgId}`)
       if (res && res.ok) {
         const data = await res.json()
         setAssignments(Array.isArray(data) ? data : [])
@@ -53,9 +52,7 @@ export default function OrgDashboard() {
   const fetchActiveProjects = async () => {
     setLoadingProjects(true)
     try {
-      const res = await fetch(`/api/projects/?org_id=${currentOrgId}`).catch(() => 
-        fetch(`http://localhost:8000/api/projects/?org_id=${currentOrgId}`)
-      )
+      const res = await authFetch(`/api/projects/?org_id=${currentOrgId}`)
       if (res && res.ok) {
         const data = await res.json()
         setActiveProjects(Array.isArray(data) ? data : [])
@@ -70,13 +67,9 @@ export default function OrgDashboard() {
   const handleAccept = async (assignmentId) => {
     setProcessingId(assignmentId)
     try {
-      const res = await fetch(`/api/challenges/invitations/${assignmentId}/accept`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }).catch(() => fetch(`http://localhost:8000/api/challenges/invitations/${assignmentId}/accept`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }))
+      const res = await authFetch(`/api/challenges/invitations/${assignmentId}/accept`, {
+        method: 'POST'
+      })
 
       if (res && res.ok) {
         await Promise.all([fetchAssignments(), fetchActiveProjects()])
@@ -91,13 +84,9 @@ export default function OrgDashboard() {
   const handleDecline = async (assignmentId) => {
     setProcessingId(assignmentId)
     try {
-      const res = await fetch(`/api/challenges/invitations/${assignmentId}/decline`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }).catch(() => fetch(`http://localhost:8000/api/challenges/invitations/${assignmentId}/decline`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }))
+      const res = await authFetch(`/api/challenges/invitations/${assignmentId}/decline`, {
+        method: 'POST'
+      })
 
       if (res && res.ok) {
         await fetchAssignments()

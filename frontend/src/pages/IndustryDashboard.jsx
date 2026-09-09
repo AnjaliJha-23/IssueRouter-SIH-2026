@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { authFetch } from '../api/client'
 import {
   Building2,
   GraduationCap,
@@ -116,8 +117,8 @@ export default function IndustryDashboard() {
       const qs = params.toString() ? `?${params.toString()}` : ''
 
       const [propRes, statRes] = await Promise.all([
-        fetch(`/api/proposals/${qs}`).catch(() => fetch(`http://localhost:8000/api/proposals/${qs}`)),
-        fetch('/api/proposals/stats').catch(() => fetch('http://localhost:8000/api/proposals/stats'))
+        authFetch(`/api/proposals/${qs}`),
+        authFetch('/api/proposals/stats')
       ])
 
       if (propRes && propRes.ok) {
@@ -137,9 +138,8 @@ export default function IndustryDashboard() {
   const handleCollaborateSubmit = async (collabData) => {
     if (!collaborateProposal) return
     try {
-      const res = await fetch(`/api/proposals/${collaborateProposal.id}/collaborate`, {
+      const res = await authFetch(`/api/proposals/${collaborateProposal.id}/collaborate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           partner_name: user?.organization?.name || 'Tata Steel CSR',
           collaboration_type: collabData.type,
@@ -162,9 +162,8 @@ export default function IndustryDashboard() {
   const handleFundSubmit = async (fundData) => {
     if (!fundProposal) return
     try {
-      const res = await fetch(`/api/proposals/${fundProposal.id}/fund`, {
+      const res = await authFetch(`/api/proposals/${fundProposal.id}/fund`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           funder_name: user?.organization?.name || 'Tata Steel CSR',
           amount: Number(fundData.amount),
@@ -199,9 +198,8 @@ export default function IndustryDashboard() {
 
     // 3. Log to backend API
     try {
-      await fetch(`/api/proposals/${mailProposal.id}/feedback`, {
+      await authFetch(`/api/proposals/${mailProposal.id}/feedback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sender_name: user?.name || 'CSR Review Team',
           sender_email: user?.email || 'csr@tatasteel.com',

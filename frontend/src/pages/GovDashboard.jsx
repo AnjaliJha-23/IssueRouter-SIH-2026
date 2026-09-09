@@ -4,6 +4,7 @@ import FilterBar from '../components/ui/FilterBar'
 import ChallengeCard from '../components/ui/ChallengeCard'
 import ChallengeDetailDrawer from '../components/ui/ChallengeDetailDrawer'
 import RoutingModal from '../components/ui/RoutingModal'
+import { authFetch } from '../api/client'
 
 const STATUS_FILTERS = [
   { key: 'all', label: 'All Active' },
@@ -86,8 +87,8 @@ export default function GovDashboard() {
       const qs = params.toString() ? `?${params.toString()}` : ''
 
       const [chRes, stRes] = await Promise.all([
-        fetch(`/api/challenges/${qs}`).catch(() => fetch(`http://localhost:8000/api/challenges/${qs}`)),
-        fetch('/api/stats/overview').catch(() => fetch('http://localhost:8000/api/stats/overview'))
+        authFetch(`/api/challenges/${qs}`),
+        authFetch('/api/stats/overview')
       ])
       if (chRes && chRes.ok) {
         const data = await chRes.json()
@@ -142,9 +143,8 @@ export default function GovDashboard() {
   const handleAction = async (challenge) => {
     if (challenge.status === 'pending_verification') {
       try {
-        const res = await fetch(`http://localhost:8000/api/challenges/${challenge.id}/verify`, {
+        const res = await authFetch(`/api/challenges/${challenge.id}/verify`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ verified: true })
         })
         if (res.ok) {
@@ -166,9 +166,8 @@ export default function GovDashboard() {
 
   const handleConfirmRoute = async (id, orgIds, deadline, note) => {
     try {
-        const res = await fetch(`http://localhost:8000/api/challenges/${id}/route`, {
+        const res = await authFetch(`/api/challenges/${id}/route`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ org_ids: orgIds, deadline, note })
         });
         if (res.ok) {

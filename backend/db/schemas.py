@@ -132,6 +132,21 @@ class MatchOut(BaseModel):
 class MatchAccept(BaseModel):
     status: str # 'accepted' or 'rejected'
 
+# ── Evidence ───────────────────────────────────────────────────────────────
+class ChallengeEvidenceOut(BaseModel):
+    id: str
+    challenge_id: Optional[str] = None
+    source: str
+    raw_text: str
+    clean_text: str
+    media_urls: Optional[List[str]] = None
+    submitted_lat: Optional[float] = None
+    submitted_lng: Optional[float] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 # ── Challenge ──────────────────────────────────────────────────────────────
 class ChallengeBase(BaseModel):
     id: str
@@ -141,6 +156,8 @@ class ChallengeBase(BaseModel):
     status: str
     priority_score: Optional[int]
     location: str
+    district: Optional[str] = None
+    block: Optional[str] = None
     lat: Optional[float]
     lng: Optional[float]
     department: Optional[str]
@@ -154,6 +171,7 @@ class ChallengeBase(BaseModel):
     verified: bool
     verified_by: Optional[str] = None
     verified_at: Optional[datetime] = None
+    media_urls: Optional[List[str]] = None
     created_at: datetime
 
     class Config:
@@ -163,6 +181,7 @@ class ChallengeOut(ChallengeBase):
     creator: Optional[UserOut] = None
     matches: List[MatchOut] = []
     project: Optional[ProjectOut] = None
+    evidence: List[ChallengeEvidenceOut] = []
     active_deadline: Optional[datetime] = None
 
     class Config:
@@ -172,8 +191,11 @@ class ChallengeCreate(BaseModel):
     title: str
     description: str
     location: str
+    district: Optional[str] = None
+    block: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    media_urls: Optional[List[str]] = None
 
 class ChallengeVerify(BaseModel):
     verified: bool

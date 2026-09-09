@@ -160,6 +160,14 @@ export default function Topbar({ onMenuClick }) {
                         {/* Menu items */}
                         <div className="py-1">
                             <Link
+                                to="/profile"
+                                onClick={() => setDropdownOpen(false)}
+                                className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                <User size={14} />
+                                Profile
+                            </Link>
+                            <Link
                                 to="/settings"
                                 onClick={() => setDropdownOpen(false)}
                                 className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
