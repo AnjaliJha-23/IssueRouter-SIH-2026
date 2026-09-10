@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
-import useStats from '../hooks/useStats'
-import { AlertTriangle, Zap, Clock, BarChart3, TrendingUp } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { authFetch } from '../api/client'
+import { AlertTriangle, Zap, Clock, BarChart3, TrendingUp, RefreshCw } from 'lucide-react'
 
 const GRID_COLOR = 'rgba(99,102,241,0.06)'
 const TICK_COLOR = '#9ca3af'
@@ -145,10 +145,10 @@ function LocationChart({ data }) {
         instance.current?.destroy()
         const locations = data.locations || []
         const labels  = locations.map(l => l.location.split(',')[0])
-        const p1 = locations.map(l => l.priority === 1 ? l.complaint_count : 0)
-        const p2 = locations.map(l => l.priority === 2 ? l.complaint_count : 0)
-        const p3 = locations.map(l => l.priority >= 3 ? l.complaint_count : 0)
-        const maxVal = Math.max(...locations.map(l => l.complaint_count), 1)
+        const p1 = locations.map(l => l.p1 ?? (l.priority === 1 ? l.complaint_count : 0))
+        const p2 = locations.map(l => l.p2 ?? (l.priority === 2 ? l.complaint_count : 0))
+        const p3 = locations.map(l => l.p3 ?? (l.priority >= 3 ? l.complaint_count : 0))
+        const maxVal = Math.max(...locations.map(l => l.complaint_count || 1), 1)
 
         instance.current = new window.Chart(ref.current, {
             type: 'bar',
@@ -185,6 +185,7 @@ function StatusChart({ overview }) {
     useEffect(() => {
         if (!window.Chart || !ref.current || !overview) return
         instance.current?.destroy()
+        const total = overview.total_clusters || 1
         instance.current = new window.Chart(ref.current, {
             type: 'doughnut',
             data: {
@@ -209,7 +210,7 @@ function StatusChart({ overview }) {
         <div className="relative w-full h-[220px] flex items-center justify-center">
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <p className="text-3xl font-bold text-gray-800 dark:text-white">{overview?.total_clusters ?? '…'}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mt-0.5">Clusters</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mt-0.5">Challenges</p>
             </div>
             <canvas ref={ref} />
         </div>
@@ -218,18 +219,215 @@ function StatusChart({ overview }) {
 
 // ── Main page ──────────────────────────────────────────────────
 export default function Analytics() {
-    const { stats, loading, error } = useStats()
-    const ov  = stats?.overview
-    const vel = stats?.velocity
-    const dep = stats?.deptLoad
-    const loc = stats?.locations
-    const pri = stats?.priorityLoad
+    const [challenges, setChallenges] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
+
+    const fetchData = async () => {
+        setLoading(true)
+        setError(null)
+        try {
+            const res = await authFetch('/api/challenges/')
+            if (!res || !res.ok) {
+                throw new Error(`Server returned status ${res?.status || 'network error'}`)
+            }
+            const data = await res.json()
+            setChallenges(Array.isArray(data) ? data : [])
+        } catch (err) {
+            console.error('Error fetching analytics challenges:', err)
+            setError(err.message || 'Failed to load challenge dataset')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchData()
+    }, [])
+
+    // ── Derive analytics from real challenge data ──────────────────
+    const { ov, vel, dep, loc, pri } = useMemo(() => {
+        const list = Array.isArray(challenges) ? challenges : []
+        const totalClusters = list.length
+
+        // Total complaints
+        const totalComplaints = list.reduce((sum, c) => sum + (Number(c?.complaint_count) || 1), 0)
+
+        // Active challenges (excluding resolved)
+        const activeList = list.filter(c => c && c.status !== 'resolved')
+        const activeCount = activeList.length
+
+        // Unique departments
+        const deptMap = {}
+        list.forEach(c => {
+            const dept = (c?.department || 'General Administration').trim()
+            const count = Number(c?.complaint_count) || 1
+            deptMap[dept] = (deptMap[dept] || 0) + count
+        })
+        const sortedDepts = Object.entries(deptMap)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+        const uniqueDeptCount = sortedDepts.length
+
+        // Average RT reach per challenge
+        const totalReach = list.reduce((sum, c) => sum + (Number(c?.rt_reach) || 0), 0)
+        const avgReach = totalClusters > 0 ? Math.round(totalReach / totalClusters) : 0
+
+        // Resolution status breakdown
+        // Pending: pending_verification, verified
+        // In Progress: matches_suggested, ready_for_routing, routed, in_project
+        // Resolved: resolved
+        let pendingCount = 0
+        let inProgressCount = 0
+        let resolvedCount = 0
+
+        list.forEach(c => {
+            if (!c) return
+            if (c.status === 'resolved') {
+                resolvedCount++
+            } else if (c.status === 'pending_verification' || c.status === 'verified') {
+                pendingCount++
+            } else {
+                // matches_suggested, ready_for_routing, routed, in_project or other active states
+                inProgressCount++
+            }
+        })
+
+        const resolutionRate = totalClusters > 0 ? Math.round((resolvedCount / totalClusters) * 100) : 0
+
+        const overview = {
+            total_clusters: totalClusters,
+            total_complaints: totalComplaints,
+            active_challenges: activeCount,
+            department_count: uniqueDeptCount,
+            avg_rt_reach: avgReach,
+            resolution_rate: resolutionRate,
+            pending: pendingCount,
+            inprogress: inProgressCount,
+            resolved: resolvedCount,
+        }
+
+        // Priority Load Distribution
+        // P1: >= 85, P2: >= 70 & < 85, P3: >= 50 & < 70, P4: < 50
+        let p1Count = 0
+        let p2Count = 0
+        let p3Count = 0
+        let p4Count = 0
+
+        list.forEach(c => {
+            const score = Number(c?.priority_score) || 0
+            const volume = Number(c?.complaint_count) || 1
+            if (score >= 85) p1Count += volume
+            else if (score >= 70) p2Count += volume
+            else if (score >= 50) p3Count += volume
+            else p4Count += volume
+        })
+
+        const priorityActiveTotal = p1Count + p2Count + p3Count + p4Count
+        const calcPct = (cnt) => priorityActiveTotal > 0 ? Math.round((cnt / priorityActiveTotal) * 100) : 0
+
+        const priorityLoad = {
+            active_total: priorityActiveTotal,
+            priorities: [
+                { label: 'Critical (P1)', count: p1Count, pct: calcPct(p1Count) },
+                { label: 'High (P2)',     count: p2Count, pct: calcPct(p2Count) },
+                { label: 'Medium (P3)',   count: p3Count, pct: calcPct(p3Count) },
+                { label: 'Low (P4)',      count: p4Count, pct: calcPct(p4Count) },
+            ]
+        }
+
+        // Department load chart
+        const deptLoad = {
+            labels: sortedDepts.map(d => d.name),
+            counts: sortedDepts.map(d => d.count),
+        }
+
+        // Location hotspots (top 10 by complaint volume)
+        const locMap = {}
+        list.forEach(c => {
+            const locName = (c?.location || 'Unspecified').trim()
+            if (!locMap[locName]) {
+                locMap[locName] = { location: locName, complaint_count: 0, p1: 0, p2: 0, p3: 0 }
+            }
+            const volume = Number(c?.complaint_count) || 1
+            const score = Number(c?.priority_score) || 0
+            locMap[locName].complaint_count += volume
+
+            if (score >= 85) locMap[locName].p1 += volume
+            else if (score >= 70) locMap[locName].p2 += volume
+            else locMap[locName].p3 += volume
+        })
+
+        const sortedLocations = Object.values(locMap)
+            .sort((a, b) => b.complaint_count - a.complaint_count)
+            .slice(0, 10)
+
+        const locations = {
+            locations: sortedLocations
+        }
+
+        // 7-day velocity chart
+        // Determine the anchor date (latest challenge date or today)
+        let anchorDate = new Date()
+        for (const c of list) {
+            if (c?.created_at) {
+                const d = new Date(c.created_at)
+                if (!isNaN(d.getTime()) && d > anchorDate) {
+                    anchorDate = d
+                }
+            }
+        }
+
+        const dayKeys = []
+        const dayLabels = []
+        const dailyCounts = {}
+
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(anchorDate)
+            d.setDate(d.getDate() - i)
+            const yyyy = d.getFullYear()
+            const mm = String(d.getMonth() + 1).padStart(2, '0')
+            const dd = String(d.getDate()).padStart(2, '0')
+            const key = `${yyyy}-${mm}-${dd}`
+            dayKeys.push(key)
+            dayLabels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+            dailyCounts[key] = 0
+        }
+
+        list.forEach(c => {
+            if (c?.created_at) {
+                const dateKey = String(c.created_at).slice(0, 10)
+                if (dailyCounts[dateKey] !== undefined) {
+                    dailyCounts[dateKey] += (Number(c?.complaint_count) || 1)
+                }
+            }
+        })
+
+        const complaintsSeries = dayKeys.map(k => dailyCounts[k])
+        const sum7Day = complaintsSeries.reduce((a, b) => a + b, 0)
+        const avg7Day = Math.round((sum7Day / 7) * 10) / 10
+        const avgLine = Array(7).fill(avg7Day)
+
+        const velocity = {
+            labels: dayLabels,
+            complaints: complaintsSeries,
+            avg_line: avgLine,
+        }
+
+        return {
+            ov: overview,
+            vel: velocity,
+            dep: deptLoad,
+            loc: locations,
+            pri: priorityLoad,
+        }
+    }, [challenges])
 
     const statCards = ov ? [
-        { label: 'Total complaints',  value: ov.total_complaints.toLocaleString(), sub: `Across ${ov.total_clusters} clusters`, subColor: 'text-gray-400' },
-        { label: 'Active clusters',   value: ov.total_clusters,                    sub: `${Object.keys({}).length || 'Multiple'} departments`, subColor: 'text-gray-400' },
-        { label: 'Avg. RT reach',     value: ov.avg_rt_reach.toLocaleString(),     sub: 'Per cluster',          subColor: 'text-green-600 dark:text-green-400' },
-        { label: 'Resolution rate',   value: `${ov.resolution_rate}%`,             sub: `${ov.resolved} resolved`, subColor: ov.resolution_rate > 20 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400' },
+        { label: 'Total complaints',  value: ov.total_complaints.toLocaleString(), sub: `Across ${ov.total_clusters} challenges`, subColor: 'text-gray-400' },
+        { label: 'Active challenges', value: ov.active_challenges,                 sub: `Across ${ov.department_count} departments`, subColor: 'text-gray-400' },
+        { label: 'Avg. RT reach',     value: ov.avg_rt_reach.toLocaleString(),     sub: 'Per challenge',          subColor: 'text-green-600 dark:text-green-400' },
+        { label: 'Resolution rate',   value: `${ov.resolution_rate}%`,             sub: `${ov.resolved} resolved`, subColor: ov.resolution_rate > 20 ? 'text-green-600 dark:text-green-400' : 'text-amber-500 dark:text-amber-400' },
     ] : []
 
     return (
@@ -251,8 +449,14 @@ export default function Analytics() {
             </div>
 
             {error && (
-                <div className="text-[13px] text-red-500 bg-red-50 dark:bg-red-900/20 px-4 py-3 rounded-xl border border-red-200 dark:border-red-800">
-                    ⚠️ Could not load analytics: {error}. Is the backend running?
+                <div className="flex items-center justify-between text-[13px] text-red-500 bg-red-50 dark:bg-red-900/20 px-4 py-3 rounded-xl border border-red-200 dark:border-red-800">
+                    <span>⚠️ Could not load analytics: {error}.</span>
+                    <button
+                        onClick={fetchData}
+                        className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-800 dark:hover:bg-red-700 text-red-700 dark:text-red-200 transition-colors cursor-pointer"
+                    >
+                        <RefreshCw size={12} /> Retry
+                    </button>
                 </div>
             )}
 
@@ -282,12 +486,12 @@ export default function Analytics() {
             </ChartCard>
 
             {/* Dept load */}
-            <ChartCard title="Department Load Distribution" sub="Complaint burden per responsible department" badge={dep ? `${dep.labels.length} departments` : ''}>
+            <ChartCard title="Department Load Distribution" sub="Complaint burden per responsible department" badge={dep?.labels?.length ? `${dep.labels.length} departments` : ''}>
                 {loading ? <SkeletonChart height={280} /> : <DeptChart data={dep} />}
             </ChartCard>
 
             {/* Location hotspot */}
-            <ChartCard title="Location-wise Issue Hotspots" sub="Top 10 locations ranked by complaint volume — colour-coded by severity" badge="Top 10 areas">
+            <ChartCard title="Location-wise Issue Hotspots" sub="Top 10 locations ranked by complaint volume — colour-coded by severity" badge={loc?.locations?.length ? `Top ${loc.locations.length} areas` : 'Top 10 areas'}>
                 <div className="flex flex-wrap gap-4 -mt-1">
                     <span className="flex items-center gap-1.5 text-[11px] text-gray-500"><span className="w-3 h-3 rounded-sm bg-red-500 inline-block" /> Critical (P1)</span>
                     <span className="flex items-center gap-1.5 text-[11px] text-gray-500"><span className="w-3 h-3 rounded-sm bg-orange-500 inline-block" /> High (P2)</span>
@@ -298,21 +502,21 @@ export default function Analytics() {
 
             {/* Status + Priority */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <ChartCard title="Resolution Status Breakdown" sub="Distribution of all active clusters" badge={ov ? `${ov.total_clusters} total` : ''}>
+                <ChartCard title="Resolution Status Breakdown" sub="Distribution of all active challenges" badge={ov ? `${ov.total_clusters} total` : ''}>
                     {loading ? <SkeletonChart height={220} /> : <StatusChart overview={ov} />}
                     {ov && (
                         <div className="flex flex-col gap-2 mt-2">
                             {[
-                                { label: 'Pending',     count: ov.pending,    pct: Math.round(ov.pending    / ov.total_clusters * 100), bg: 'bg-orange-500', icon: '⏳' },
-                                { label: 'In Progress', count: ov.inprogress, pct: Math.round(ov.inprogress / ov.total_clusters * 100), bg: 'bg-indigo-500', icon: '🔧' },
-                                { label: 'Resolved',    count: ov.resolved,   pct: Math.round(ov.resolved   / ov.total_clusters * 100), bg: 'bg-green-500',  icon: '✅' },
+                                { label: 'Pending',     count: ov.pending,    pct: ov.total_clusters > 0 ? Math.round(ov.pending    / ov.total_clusters * 100) : 0, bg: 'bg-orange-500', icon: '⏳' },
+                                { label: 'In Progress', count: ov.inprogress, pct: ov.total_clusters > 0 ? Math.round(ov.inprogress / ov.total_clusters * 100) : 0, bg: 'bg-indigo-500', icon: '🔧' },
+                                { label: 'Resolved',    count: ov.resolved,   pct: ov.total_clusters > 0 ? Math.round(ov.resolved   / ov.total_clusters * 100) : 0, bg: 'bg-green-500',  icon: '✅' },
                             ].map(({ label, count, pct, bg, icon }) => (
                                 <div key={label} className="flex items-center gap-3 rounded-xl border border-gray-100 dark:border-gray-700/50 bg-white/40 dark:bg-gray-900/30 px-3 py-2">
                                     <span className="text-base">{icon}</span>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-1">
                                             <span className="text-[12px] font-bold text-gray-700 dark:text-gray-200">{label}</span>
-                                            <span className="text-[12px] font-bold text-gray-800 dark:text-white">{count} <span className="text-[10px] font-normal text-gray-400">clusters</span></span>
+                                            <span className="text-[12px] font-bold text-gray-800 dark:text-white">{count} <span className="text-[10px] font-normal text-gray-400">challenges</span></span>
                                         </div>
                                         <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700/60 rounded-full overflow-hidden">
                                             <div className={`h-full rounded-full ${bg}`} style={{ width: `${pct}%` }} />
@@ -351,4 +555,4 @@ export default function Analytics() {
 
         </div>
     )
-}
+}
