@@ -2,24 +2,24 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { authFetch } from '../api/client'
-import { 
-  FolderGit2, 
-  CheckCircle2, 
-  Circle, 
-  ArrowLeft, 
-  Sparkles, 
-  Send, 
-  Save, 
-  Building2, 
-  MapPin, 
-  Tag, 
-  Layers, 
-  ShieldCheck, 
-  AlertCircle, 
-  DollarSign, 
-  Clock, 
-  Award, 
-  Users, 
+import {
+  FolderGit2,
+  CheckCircle2,
+  Circle,
+  ArrowLeft,
+  Sparkles,
+  Send,
+  Save,
+  Building2,
+  MapPin,
+  Tag,
+  Layers,
+  ShieldCheck,
+  AlertCircle,
+  DollarSign,
+  Clock,
+  Award,
+  Users,
   FileText,
   Check,
   Edit3
@@ -36,7 +36,7 @@ export default function ProjectWorkspace() {
   const { id } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
-  
+
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -140,7 +140,7 @@ export default function ProjectWorkspace() {
 
       if (res && res.ok) {
         showToast(
-          isDraft ? 'Proposal saved as draft!' : 'Solution Proposal successfully submitted to Industry Portal!', 
+          isDraft ? 'Proposal saved as draft!' : 'Solution Proposal successfully submitted to Industry Portal!',
           'success'
         )
         await fetchProject()
@@ -180,6 +180,13 @@ export default function ProjectWorkspace() {
   const p = project.proposal
   const isSubmitted = Boolean(p && p.status === 'submitted')
 
+  const PHASE_TITLES = [
+    'Initial Problem Analysis & Architecture',
+    'Research and Prototype Submission',
+    'Solution Submission',
+    'Industry Deployment',
+  ]
+
   let milestones = []
   try {
     if (project.milestones_json) {
@@ -189,9 +196,27 @@ export default function ProjectWorkspace() {
     console.error('Error parsing milestones', e)
   }
 
+  if (Array.isArray(milestones) && milestones.length === 4) {
+    milestones = milestones.map((m, idx) => ({
+      ...m,
+      title: PHASE_TITLES[idx] || m.title,
+      status: isSubmitted ? (idx < 3 ? 'completed' : 'pending') : m.status,
+    }))
+  } else if (isSubmitted) {
+    milestones = PHASE_TITLES.map((title, idx) => ({
+      title,
+      status: idx < 3 ? 'completed' : 'pending',
+    }))
+  } else {
+    milestones = PHASE_TITLES.map((title, idx) => ({
+      title,
+      status: idx === 0 ? 'completed' : idx === 1 ? 'in_progress' : 'pending',
+    }))
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-7 pb-16">
-      
+
       {/* ── Toast Notification ───────────────── */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-5 py-3.5 rounded-xl shadow-2xl border border-neutral-700 animate-fade-in-up">
@@ -203,8 +228,8 @@ export default function ProjectWorkspace() {
       {/* ── Header Breadcrumbs & Status ───────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link 
-            to={user?.role === 'Gov' ? '/dashboard/gov' : user?.role === 'Citizen' ? '/dashboard/citizen' : '/dashboard/org'} 
+          <Link
+            to={user?.role === 'Gov' ? '/dashboard/gov' : user?.role === 'Citizen' ? '/dashboard/citizen' : '/dashboard/org'}
             className="p-2.5 hover:bg-neutral-200 dark:hover:bg-neutral-800 rounded-xl transition-colors text-neutral-600 dark:text-neutral-300"
             title="Back to Dashboard"
           >
@@ -299,7 +324,7 @@ export default function ProjectWorkspace() {
           SECTION 2 — UNIVERSITY SOLUTION PROPOSAL
           ══════════════════════════════════════════════════ */}
       <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm overflow-hidden">
-        
+
         {/* Section Header */}
         <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50/70 dark:bg-neutral-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -326,7 +351,7 @@ export default function ProjectWorkspace() {
         {/* ── CASE A: PROPOSAL SUBMITTED (READ-ONLY VIEW) ── */}
         {isSubmitted && !isEditing ? (
           <div className="p-6 space-y-6">
-            
+
             {/* Live Status Banner */}
             <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-white dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-neutral-800 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -406,17 +431,14 @@ export default function ProjectWorkspace() {
               </div>
             </div>
 
-            <div className="pt-2 flex justify-between items-center border-t border-neutral-100 dark:border-neutral-700/60 text-xs text-neutral-500">
+            <div className="pt-2 flex items-center border-t border-neutral-100 dark:border-neutral-700/60 text-xs text-neutral-500">
               <span>Submitted: {new Date(p.created_at).toLocaleDateString()}</span>
-              <Link to="/dashboard/industry" className="font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
-                View in Industry Portal →
-              </Link>
             </div>
           </div>
         ) : (
           /* ── CASE B: FORM INPUT (NOT SUBMITTED OR EDITING) ── */
           <form onSubmit={(e) => { e.preventDefault(); handleSubmitProposal(false); }} className="p-6 space-y-6">
-            
+
             {/* Subsection 1: Solution Overview */}
             <div className="space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 flex items-center gap-1.5">
@@ -640,22 +662,21 @@ export default function ProjectWorkspace() {
           <Layers className="w-4 h-4 text-blue-600" />
           Project Delivery Pipeline
         </h4>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {milestones.map((m, idx) => {
             const isDone = m.status === 'completed'
             const isInProg = m.status === 'in_progress'
 
             return (
-              <div 
-                key={idx} 
-                className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2 ${
-                  isDone 
-                    ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40' 
-                    : isInProg
+              <div
+                key={idx}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2 ${isDone
+                  ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+                  : isInProg
                     ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/40'
                     : 'bg-neutral-50 dark:bg-neutral-900/30 border-neutral-200 dark:border-neutral-700'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-neutral-400 uppercase">Phase {idx + 1}</span>
@@ -672,13 +693,12 @@ export default function ProjectWorkspace() {
                   {m.title}
                 </p>
 
-                <span className={`text-[9.5px] uppercase font-extrabold px-2 py-0.5 rounded self-start ${
-                  isDone 
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300' 
-                    : isInProg
+                <span className={`text-[9.5px] uppercase font-extrabold px-2 py-0.5 rounded self-start ${isDone
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
+                  : isInProg
                     ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
                     : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-400'
-                }`}>
+                  }`}>
                   {m.status.replace('_', ' ')}
                 </span>
               </div>
