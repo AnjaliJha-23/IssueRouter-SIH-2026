@@ -17,7 +17,7 @@ Write-Host "[setup] Activating virtual environment..." -ForegroundColor Cyan
 
 # Install dependencies
 Write-Host "[setup] Installing backend dependencies..." -ForegroundColor Cyan
-python -m pip install fastapi uvicorn sqlalchemy pydantic
+python -m pip install fastapi uvicorn sqlalchemy pydantic python-multipart python-dotenv pyjwt
 
 # Seed the database
 Write-Host "[seed] Seeding database with 150 clusters..." -ForegroundColor Cyan
