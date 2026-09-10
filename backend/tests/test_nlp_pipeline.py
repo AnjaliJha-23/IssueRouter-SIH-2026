@@ -3,6 +3,13 @@ backend/tests/test_nlp_pipeline.py
 Comprehensive test suite for the IssueRouter NLP Pipeline.
 Run with: py -3.12 -m pytest tests/test_nlp_pipeline.py -v
 """
+import sys
+import os
+
+# Ensure backend root is on sys.path regardless of execution CWD
+BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
 
 import pytest
 import numpy as np
