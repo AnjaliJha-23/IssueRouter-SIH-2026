@@ -1,14 +1,31 @@
-import { useEffect, useRef, useState } from 'react'
-import useClusters from '../hooks/useClusters'
-import { MapPin, Layers, List, TrendingUp, Building2, AlertCircle } from 'lucide-react'
+import { useEffect, useRef, useState, useMemo } from 'react'
+import { MapPin, Layers, List, TrendingUp, Building2, AlertCircle, AlertTriangle } from 'lucide-react'
 
 const PRIORITY_COLORS = { 1: '#ef4444', 2: '#f97316', 3: '#6366f1', 4: '#9ca3af' }
+
 const STATUS_STYLES = {
-  pending:    'bg-amber-50 text-amber-700',
-  inprogress: 'bg-blue-50 text-blue-700',
-  resolved:   'bg-green-50 text-green-700',
+  pending_verification: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  verified:             'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+  matches_suggested:    'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300',
+  ready_for_routing:    'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  routed:               'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300',
+  in_project:           'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300',
+  resolved:             'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300',
+  pending:              'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  inprogress:           'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
 }
-const STATUS_LABELS = { pending: 'Pending', inprogress: 'In progress', resolved: 'Resolved' }
+
+const STATUS_LABELS = {
+  pending_verification: 'Pending Verification',
+  verified:             'Verified',
+  matches_suggested:    'Matches Suggested',
+  ready_for_routing:    'Ready for Routing',
+  routed:               'Routed',
+  in_project:           'In Project',
+  resolved:             'Resolved',
+  pending:              'Pending',
+  inprogress:           'In progress',
+}
 
 function makeIcon(L, color) {
   return L.divIcon({
@@ -23,6 +40,51 @@ function makeIcon(L, color) {
     iconAnchor: [14, 28],
     popupAnchor: [0, -30],
   })
+}
+
+function isValidCoord(lat, lng) {
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    !isNaN(lat) &&
+    !isNaN(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180 &&
+    !(lat === 0 && lng === 0)
+  )
+}
+
+function transformChallenge(c) {
+  const priorityNum =
+    (c.priority_score ?? 50) >= 85 ? 1 :
+    (c.priority_score ?? 50) >= 70 ? 2 :
+    (c.priority_score ?? 50) >= 50 ? 3 : 4
+
+  return {
+    ...c,
+    cluster_id: c.id,
+    problem: c.title || 'Untitled Civic Challenge',
+    summary:
+      c.description ||
+      c.official_description ||
+      c.ai_generated_summary ||
+      'Civic challenge under government review.',
+    recommended_action:
+      c.domain
+        ? `${c.domain} Intervention & Departmental Routing`
+        : 'Field inspection and partner routing recommended.',
+    priority: priorityNum,
+    priority_score: c.priority_score || 50,
+    complaint_count: c.complaint_count || 1,
+    rt_reach: c.rt_reach || 0,
+    department: c.department || c.domain || 'Public Administration',
+    location: c.location || 'Jharkhand',
+    status: c.status || 'pending_verification',
+    lat: Number(c.lat),
+    lng: Number(c.lng),
+  }
 }
 
 function popupHTML(c) {
@@ -49,26 +111,30 @@ function popupHTML(c) {
         </div>
         <div style="background:#f3f4f6;border-radius:6px;padding:6px 8px;">
           <div style="font-size:10px;color:#9ca3af;">Priority</div>
-          <div style="font-size:13px;font-weight:500;color:${color};">P${c.priority}</div>
+          <div style="font-size:13px;font-weight:500;color:${color};">P${c.priority} (${c.priority_score})</div>
         </div>
       </div>
       <div style="font-size:11px;color:#374151;background:#fef9ec;border:1px solid #fde68a;border-radius:6px;padding:6px 8px;line-height:1.5;">
-        <span style="font-weight:600;">Recommended:</span> ${(c.recommended_action ?? '').slice(0, 80)}…
+        <span style="font-weight:600;">Action:</span> ${(c.recommended_action ?? '').slice(0, 80)}…
       </div>
     </div>`
 }
 
 // ── Leaflet Map component ─────────────────────────────────────
-function LeafletMap({ clusters, mode }) {
-  const mapRef      = useRef(null)
-  const instanceRef = useRef(null)
-  const heatRef     = useRef(null)
-  const markersRef  = useRef([])
+function LeafletMap({ challenges = [], mode = 'both', selectedChallenge = null }) {
+  const mapRef        = useRef(null)
+  const instanceRef   = useRef(null)
+  const heatRef       = useRef(null)
+  const markersRef    = useRef([])
+  const markersMapRef = useRef(new Map())
 
   useEffect(() => {
     if (!window.L || instanceRef.current) return
     const L   = window.L
-    const map = L.map(mapRef.current, { center: [28.6139, 77.1500], zoom: 11 })
+    const map = L.map(mapRef.current, {
+      center: [23.6102, 85.2799],
+      zoom: 7,
+    })
     instanceRef.current = map
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -76,10 +142,13 @@ function LeafletMap({ clusters, mode }) {
       maxZoom: 19,
     }).addTo(map)
 
-    return () => { map.remove(); instanceRef.current = null }
+    return () => {
+      map.remove()
+      instanceRef.current = null
+    }
   }, [])
 
-  // Re-draw markers + heatmap whenever clusters data changes
+  // Re-draw markers + heatmap + auto-fit whenever challenges data changes
   useEffect(() => {
     const map = instanceRef.current
     if (!map || !window.L) return
@@ -88,29 +157,55 @@ function LeafletMap({ clusters, mode }) {
     // Clear old markers & heat layer
     markersRef.current.forEach((m) => map.removeLayer(m))
     markersRef.current = []
-    if (heatRef.current) { map.removeLayer(heatRef.current); heatRef.current = null }
+    markersMapRef.current.clear()
+    if (heatRef.current) {
+      map.removeLayer(heatRef.current)
+      heatRef.current = null
+    }
 
-    const validClusters = clusters.filter((c) => c.lat && c.lng)
+    const validChallenges = challenges.filter((c) => isValidCoord(c.lat, c.lng))
 
     // Markers
-    const newMarkers = validClusters.map((c) =>
-      L.marker([c.lat, c.lng], { icon: makeIcon(L, PRIORITY_COLORS[c.priority] ?? '#9ca3af') })
-        .bindPopup(popupHTML(c), { maxWidth: 280 })
-    )
+    const newMarkers = validChallenges.map((c) => {
+      const marker = L.marker([c.lat, c.lng], {
+        icon: makeIcon(L, PRIORITY_COLORS[c.priority] ?? '#9ca3af'),
+      }).bindPopup(popupHTML(c), { maxWidth: 280 })
+      markersMapRef.current.set(c.cluster_id, marker)
+      return marker
+    })
     markersRef.current = newMarkers
 
     // Heatmap
-    if (window.L.heatLayer) {
-      const heatData = validClusters.map((c) => [c.lat, c.lng, Math.min(c.complaint_count / 200, 1.0)])
+    if (window.L.heatLayer && validChallenges.length > 0) {
+      const heatData = validChallenges.map((c) => [
+        c.lat,
+        c.lng,
+        Math.min(Math.max((c.complaint_count || 50) / 250, 0.4), 1.0),
+      ])
       heatRef.current = window.L.heatLayer(heatData, {
-        radius: 50, blur: 35, maxZoom: 13, max: 1.0,
+        radius: 45,
+        blur: 30,
+        maxZoom: 13,
+        max: 1.0,
         gradient: { 0.3: '#6366f1', 0.6: '#f97316', 0.85: '#ef4444', 1.0: '#be123c' },
       })
     }
 
+    // Dynamic map centering & bounds fitting
+    if (validChallenges.length === 1) {
+      map.setView([validChallenges[0].lat, validChallenges[0].lng], 13)
+    } else if (validChallenges.length > 1) {
+      const bounds = L.latLngBounds(validChallenges.map((c) => [c.lat, c.lng]))
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
+    } else {
+      map.setView([23.6102, 85.2799], 7)
+    }
+
+    map.invalidateSize()
+
     // Apply mode
     applyMode(map, mode)
-  }, [clusters]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [challenges]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function applyMode(map, mode) {
     if (!map) return
@@ -131,7 +226,38 @@ function LeafletMap({ clusters, mode }) {
     applyMode(instanceRef.current, mode)
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={mapRef} className="w-full h-full rounded-xl overflow-hidden" />
+  // Pan to selected challenge if selected in right sidebar
+  useEffect(() => {
+    const map = instanceRef.current
+    if (!map || !selectedChallenge) return
+    if (isValidCoord(selectedChallenge.lat, selectedChallenge.lng)) {
+      map.setView([selectedChallenge.lat, selectedChallenge.lng], 13, { animate: true })
+      const marker = markersMapRef.current.get(selectedChallenge.cluster_id)
+      if (marker && mode !== 'heatmap') {
+        marker.openPopup()
+      }
+    }
+  }, [selectedChallenge, mode])
+
+  const validCount = challenges.filter((c) => isValidCoord(c.lat, c.lng)).length
+
+  return (
+    <div className="relative w-full h-full rounded-xl overflow-hidden">
+      <div ref={mapRef} className="w-full h-full" />
+      {validCount === 0 && (
+        <div className="absolute inset-0 z-[1000] bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="text-center space-y-1.5 p-4 rounded-xl glass-panel shadow-sm">
+            <p className="text-xs font-bold text-gray-700 dark:text-gray-200">
+              No challenge locations available.
+            </p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              Challenges currently in the database lack geographical coordinates.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Main page ─────────────────────────────────────────────────
@@ -140,7 +266,9 @@ export default function Maps() {
   const [scriptsReady, setReady]  = useState(false)
   const [selectedId, setSelected] = useState(null)
 
-  const { clusters, loading } = useClusters()
+  const [challenges, setChallenges] = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState(null)
 
   // Load Leaflet + leaflet.heat from CDN
   useEffect(() => {
@@ -159,7 +287,48 @@ export default function Maps() {
       .then(() => setReady(true))
   }, [])
 
-  const sorted = [...clusters].sort((a, b) => b.complaint_count - a.complaint_count)
+  // Fetch government challenges directly using GovDashboard resilient pattern
+  useEffect(() => {
+    let isMounted = true
+    const fetchChallenges = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/challenges/').catch(() =>
+          fetch('http://localhost:8000/api/challenges/')
+        )
+        if (res && res.ok) {
+          const data = await res.json()
+          if (isMounted) {
+            const list = Array.isArray(data) ? data : []
+            setChallenges(list.map(transformChallenge))
+          }
+        } else {
+          if (isMounted) setError('Failed to load challenge locations.')
+        }
+      } catch (err) {
+        console.error('Error fetching challenges for map:', err)
+        if (isMounted) setError('Failed to load challenge locations.')
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    fetchChallenges()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const sorted = useMemo(() => {
+    return [...challenges].sort(
+      (a, b) => (b.priority_score || 0) - (a.priority_score || 0) || b.complaint_count - a.complaint_count
+    )
+  }, [challenges])
+
+  const selectedChallenge = useMemo(() => {
+    return challenges.find((c) => c.cluster_id === selectedId) || null
+  }, [challenges, selectedId])
 
   return (
     <div className="space-y-4">
@@ -171,7 +340,7 @@ export default function Maps() {
             Complaint Hotspot &amp; Density Map
           </h2>
           <p className="text-[13.5px] font-medium text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed">
-            Interactive heatmap of {loading ? '…' : clusters.length} civic issue clusters across Delhi.{' '}
+            Interactive heatmap of {loading ? '…' : challenges.length} civic challenges across the region.{' '}
             <strong className="text-indigo-500 dark:text-indigo-400 font-semibold">Red areas</strong> indicate highest complaint density.
           </p>
         </div>
@@ -186,7 +355,7 @@ export default function Maps() {
             <button
               key={key}
               onClick={() => setMode(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors cursor-pointer
                 ${mode === key
                   ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-gray-100 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -203,16 +372,21 @@ export default function Maps() {
 
         {/* Map */}
         <div className="flex-1 min-h-[320px] h-[45vw] lg:h-[520px] glass-panel rounded-xl overflow-hidden shadow-2xl relative z-0">
-          {scriptsReady && !loading
-            ? <LeafletMap clusters={clusters} mode={mode} />
-            : (
-              <div className="w-full h-full flex items-center justify-center">
-                <p className="text-[13px] text-gray-400 animate-pulse">
-                  {loading ? 'Loading clusters…' : 'Loading map…'}
-                </p>
-              </div>
-            )
-          }
+          {error ? (
+            <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center space-y-2">
+              <AlertTriangle className="w-8 h-8 text-rose-500" />
+              <p className="text-[13px] font-bold text-rose-600 dark:text-rose-400">{error}</p>
+              <p className="text-xs text-gray-400">Please check backend connectivity and reload.</p>
+            </div>
+          ) : scriptsReady && !loading ? (
+            <LeafletMap challenges={challenges} mode={mode} selectedChallenge={selectedChallenge} />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <p className="text-[13px] text-gray-400 animate-pulse">
+                {loading ? 'Loading challenge locations…' : 'Loading map…'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Sidebar list */}
@@ -225,69 +399,74 @@ export default function Maps() {
           </div>
 
           <div className="flex flex-col gap-2 overflow-y-auto max-h-[400px] lg:max-h-[488px] pr-0.5">
-            {loading
-              ? Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="rounded-xl border border-gray-200/50 dark:border-gray-700/50 p-3 animate-pulse space-y-2">
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-                    <div className="h-2 bg-gray-100 dark:bg-gray-700/50 rounded w-1/2" />
-                  </div>
-                ))
-              : sorted.map((c, i) => {
-                  const color      = PRIORITY_COLORS[c.priority] ?? '#9ca3af'
-                  const isSelected = selectedId === c.cluster_id
-                  return (
-                    <button
-                      key={c.cluster_id}
-                      onClick={() => setSelected(isSelected ? null : c.cluster_id)}
-                      className={`w-full text-left rounded-xl p-3 transition-all
-                        ${isSelected
-                          ? 'border border-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/40 shadow-md'
-                          : 'border border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-800/50 hover:bg-white/80 dark:hover:bg-gray-800/80'
-                        }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className="text-[10px] font-bold w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5"
-                          style={{ background: color + '20', color }}>
-                          {i + 1}
-                        </span>
-                        <p className="text-[12px] font-medium text-gray-800 dark:text-gray-100 leading-snug flex-1">
-                          {c.problem}
+            {loading ? (
+              Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-gray-200/50 dark:border-gray-700/50 p-3 animate-pulse space-y-2">
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                  <div className="h-2 bg-gray-100 dark:bg-gray-700/50 rounded w-1/2" />
+                </div>
+              ))
+            ) : sorted.length === 0 ? (
+              <div className="p-4 text-center">
+                <p className="text-xs text-gray-400 font-medium">No challenges found.</p>
+              </div>
+            ) : (
+              sorted.map((c, i) => {
+                const color      = PRIORITY_COLORS[c.priority] ?? '#9ca3af'
+                const isSelected = selectedId === c.cluster_id
+                return (
+                  <button
+                    key={c.cluster_id}
+                    onClick={() => setSelected(isSelected ? null : c.cluster_id)}
+                    className={`w-full text-left rounded-xl p-3 transition-all cursor-pointer
+                      ${isSelected
+                        ? 'border border-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/40 shadow-md'
+                        : 'border border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-800/50 hover:bg-white/80 dark:hover:bg-gray-800/80'
+                      }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-[10px] font-bold w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{ background: color + '20', color }}>
+                        {i + 1}
+                      </span>
+                      <p className="text-[12px] font-medium text-gray-800 dark:text-gray-100 leading-snug flex-1">
+                        {c.problem}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2 pl-7">
+                      <span className="flex items-center gap-1 text-[11px] text-gray-400"><MapPin size={10} />{c.location.split(',')[0]}</span>
+                      <span className="flex items-center gap-1 text-[11px] text-gray-400"><Building2 size={10} />{c.department}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 pl-7">
+                      <span className="flex items-center gap-1 text-[11px] font-medium" style={{ color }}>
+                        <AlertCircle size={10} />{c.complaint_count} complaints
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_STYLES[c.status] ?? ''}`}>
+                        {STATUS_LABELS[c.status] ?? c.status}
+                      </span>
+                    </div>
+                    {isSelected && (
+                      <div className="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-800 pl-7 space-y-1.5">
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">{c.summary}</p>
+                        <p className="text-[11px] text-indigo-600 dark:text-indigo-400 leading-relaxed">
+                          <span className="font-medium">Action: </span>{c.recommended_action}
                         </p>
-                      </div>
-                      <div className="flex items-center gap-2 mt-2 pl-7">
-                        <span className="flex items-center gap-1 text-[11px] text-gray-400"><MapPin size={10} />{c.location.split(',')[0]}</span>
-                        <span className="flex items-center gap-1 text-[11px] text-gray-400"><Building2 size={10} />{c.department}</span>
-                      </div>
-                      <div className="flex items-center justify-between mt-2 pl-7">
-                        <span className="flex items-center gap-1 text-[11px] font-medium" style={{ color }}>
-                          <AlertCircle size={10} />{c.complaint_count} complaints
-                        </span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_STYLES[c.status] ?? ''}`}>
-                          {STATUS_LABELS[c.status] ?? c.status}
-                        </span>
-                      </div>
-                      {isSelected && (
-                        <div className="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-800 pl-7 space-y-1.5">
-                          <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">{c.summary}</p>
-                          <p className="text-[11px] text-indigo-600 dark:text-indigo-400 leading-relaxed">
-                            <span className="font-medium">Action: </span>{c.recommended_action}
-                          </p>
-                          <div className="flex gap-3 pt-1">
-                            <span className="text-[11px] text-gray-400">
-                              RT reach: <span className="font-medium text-gray-700 dark:text-gray-200">{c.rt_reach?.toLocaleString()}</span>
+                        <div className="flex gap-3 pt-1">
+                          <span className="text-[11px] text-gray-400">
+                            RT reach: <span className="font-medium text-gray-700 dark:text-gray-200">{c.rt_reach?.toLocaleString()}</span>
+                          </span>
+                          <span className="text-[11px] text-gray-400">
+                            Trend: <span className={`font-medium ${c.trend === 'up' ? 'text-red-500' : c.trend === 'down' ? 'text-green-600' : 'text-gray-500'}`}>
+                              {c.trend === 'up' ? '↑ Rising' : c.trend === 'down' ? '↓ Falling' : '→ Stable'}
                             </span>
-                            <span className="text-[11px] text-gray-400">
-                              Trend: <span className={`font-medium ${c.trend === 'up' ? 'text-red-500' : c.trend === 'down' ? 'text-green-600' : 'text-gray-500'}`}>
-                                {c.trend === 'up' ? '↑ Rising' : c.trend === 'down' ? '↓ Falling' : '→ Stable'}
-                              </span>
-                            </span>
-                          </div>
+                          </span>
                         </div>
-                      )}
-                    </button>
-                  )
-                })
-            }
+                      </div>
+                    )}
+                  </button>
+                )
+              })
+            )}
           </div>
         </div>
       </div>

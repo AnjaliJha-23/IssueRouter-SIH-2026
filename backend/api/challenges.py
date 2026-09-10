@@ -408,8 +408,8 @@ def accept_invitation(
             status="prototype",
             milestones_json=json.dumps([
                 {"title": "Initial Problem Analysis & Architecture", "status": "completed"},
-                {"title": "Solution Proposal Submission", "status": "in_progress"},
-                {"title": "Prototype Development & Pilot", "status": "pending"},
+                {"title": "Research and Prototype Submission", "status": "in_progress"},
+                {"title": "Solution Submission", "status": "pending"},
                 {"title": "Industry Deployment", "status": "pending"}
             ])
         )
