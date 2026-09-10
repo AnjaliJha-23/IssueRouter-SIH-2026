@@ -795,15 +795,21 @@ function CollaborateModal({ proposal, onClose, onSubmit }) {
    MODAL 2: Fund The Solution Modal
 ───────────────────────────────────────────────────────────────────────────── */
 function FundSolutionModal({ proposal, onClose, onSubmit }) {
-  const [amount, setAmount] = useState(proposal.budget_num || 500000)
+  const reqBudget = proposal.budget_num || (
+    proposal.budget_required
+      ? Number(String(proposal.budget_required).replace(/[^0-9]/g, '')) || 850000
+      : 850000
+  )
+  const [customBudget, setCustomBudget] = useState(reqBudget)
   const [bucket, setBucket] = useState('Healthcare CSR 2026')
   const [note, setNote] = useState('')
 
-  const PRESETS = [
-    { label: '₹2.5 Lakhs (Phase 1)', val: 250000 },
-    { label: '₹5.0 Lakhs (Pilot)', val: 500000 },
-    { label: '₹10.0 Lakhs (Full Setup)', val: 1000000 },
-    { label: `Full Budget (${proposal.budget_required})`, val: proposal.budget_num || 850000 },
+  // Fixed based on the original proposal's required budget
+  const TIERS = [
+    { pct: 25, label: '25% (Phase 1)', val: Math.round(reqBudget * 0.25) },
+    { pct: 50, label: '50% (Pilot)', val: Math.round(reqBudget * 0.50) },
+    { pct: 75, label: '75% (Full Setup)', val: Math.round(reqBudget * 0.75) },
+    { pct: 100, label: '100% (Full Budget)', val: reqBudget },
   ]
 
   const BUCKETS = [
@@ -816,7 +822,7 @@ function FundSolutionModal({ proposal, onClose, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onSubmit({ amount, bucket, note })
+    onSubmit({ amount: Number(customBudget) || 0, bucket, note })
   }
 
   return (
@@ -846,37 +852,42 @@ function FundSolutionModal({ proposal, onClose, onSubmit }) {
           </div>
 
           <div>
+            <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+              Custom Budget (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={customBudget}
+              onChange={(e) => setCustomBudget(e.target.value === '' ? '' : Number(e.target.value))}
+              placeholder="Enter custom grant budget..."
+              className="w-full text-xs p-2.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-emerald-500 text-neutral-900 dark:text-white font-bold"
+            />
+          </div>
+
+          <div>
             <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-2">
               Select Grant Tier
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {PRESETS.map(p => (
+              {TIERS.map(t => (
                 <button
                   type="button"
-                  key={p.label}
-                  onClick={() => setAmount(p.val)}
-                  className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-colors cursor-pointer ${
-                    amount === p.val
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-800 dark:text-emerald-200'
+                  key={t.pct}
+                  onClick={() => setCustomBudget(t.val)}
+                  className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-colors cursor-pointer flex flex-col justify-between gap-1 ${
+                    Number(customBudget) === t.val
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-800 dark:text-emerald-200 shadow-xs'
                       : 'border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
                   }`}
                 >
-                  {p.label}
+                  <span className="text-[11px] font-semibold">{t.label}</span>
+                  <span className="font-mono font-bold text-xs">
+                    ₹{t.val.toLocaleString('en-IN')}
+                  </span>
                 </button>
               ))}
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-              Custom Amount (₹)
-            </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full text-xs p-2.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-emerald-500 text-neutral-900 dark:text-white font-bold"
-            />
           </div>
 
           <div>
@@ -904,9 +915,9 @@ function FundSolutionModal({ proposal, onClose, onSubmit }) {
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
             >
-              <Check className="w-3.5 h-3.5" /> Confirm ₹{Number(amount).toLocaleString('en-IN')} Grant
+              <Check className="w-3.5 h-3.5" /> Proceed to University Portal
             </button>
           </div>
         </form>

@@ -3,6 +3,7 @@ import { useIssues } from '../context/IssueContext'
 import { useAuth } from '../context/AuthContext'
 import { authFetch } from '../api/client'
 import CitizenProgress from './CitizenProgress'
+import IndustryProgress from './IndustryProgress'
 import {
     ChevronDown,
     ChevronUp,
@@ -240,6 +241,10 @@ export default function Progress() {
 
     if (user?.role === 'Citizen') {
         return <CitizenProgress />
+    }
+
+    if (user?.role === 'Industry') {
+        return <IndustryProgress />
     }
 
     const [expandedId, setExpandedId] = useState(null)

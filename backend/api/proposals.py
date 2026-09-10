@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import Challenge, Organization, Proposal
+from db.models import Challenge, Organization, Proposal, Project
 
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
 
@@ -697,33 +697,134 @@ def collaborate_on_proposal(proposal_id: str, req: CollaborateRequest, db: Sessi
 @router.post("/{proposal_id}/fund")
 def fund_proposal(proposal_id: str, req: FundRequest, db: Session = Depends(get_db)):
     current = PROPOSAL_STATE_OVERRIDES.get(proposal_id, {})
-    partners = current.get("partners", [])
+    partners = list(current.get("partners", []))
     if req.funder_name not in partners:
         partners.append(req.funder_name)
         
     current_funds = current.get("funds_committed", 0) + req.amount
+    
+    # Check DB proposal or challenge template to determine target budget
+    db_prop = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    target_budget = 850000
+    
+    if db_prop:
+        target_budget = db_prop.budget_num or 850000
+    else:
+        ch_id = proposal_id.replace("PROP-", "")
+        ch = db.query(Challenge).filter(Challenge.id == ch_id).first()
+        if ch:
+            domain = ch.domain or "HealthTech"
+            options = UNIVERSITY_SOLUTIONS_MAP.get(domain, UNIVERSITY_SOLUTIONS_MAP.get("HealthTech", UNIVERSITY_SOLUTIONS_MAP["Default"]))
+            target_budget = options[0]["budget_num"] if options else 850000
+
+    if current_funds >= target_budget:
+        new_funding_status = "Funded"
+    elif current_funds > 0:
+        new_funding_status = "Partially Funded"
+    else:
+        new_funding_status = "Open for Funding"
+
     current["funds_committed"] = current_funds
     current["partners"] = partners
-    current["funding_status"] = "Funded"
+    current["funding_status"] = new_funding_status
     current["collaboration_status"] = "Partnered"
     current["csr_bucket"] = req.csr_bucket
     PROPOSAL_STATE_OVERRIDES[proposal_id] = current
     
-    # Also update DB proposal if exists
-    db_prop = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    # 1. Update existing DB Proposal & Project
     if db_prop:
         db_prop.partners = partners
         db_prop.funds_committed = current_funds
-        db_prop.funding_status = "Funded"
+        db_prop.funding_status = new_funding_status
         db_prop.collaboration_status = "Partnered"
+        
+        # Advance project milestones if funded
+        if db_prop.project:
+            p_status = "in_project" if new_funding_status == "Partially Funded" else "prototype"
+            db_prop.project.status = p_status
+            try:
+                import json
+                m_list = json.loads(db_prop.project.milestones_json) if isinstance(db_prop.project.milestones_json, str) else (db_prop.project.milestones_json or [])
+                if m_list and len(m_list) >= 3:
+                    m_list[0]["status"] = "completed"
+                    m_list[1]["status"] = "completed"
+                    m_list[2]["status"] = "in_progress" if new_funding_status == "Partially Funded" else "completed"
+                    if len(m_list) >= 4:
+                        m_list[3]["status"] = "in_progress" if new_funding_status == "Funded" else "pending"
+                    db_prop.project.milestones_json = json.dumps(m_list)
+            except Exception:
+                pass
         db.commit()
+    else:
+        # 2. If proposal is from template, persist it into SQLite Project & Proposal tables
+        ch_id = proposal_id.replace("PROP-", "")
+        ch = db.query(Challenge).filter(Challenge.id == ch_id).first()
+        if ch:
+            import json
+            first_uni = db.query(Organization).filter(Organization.type == "University").first()
+            org_id = first_uni.id if first_uni else "org-univ-1"
+            
+            proj = db.query(Project).filter(Project.challenge_id == ch.id).first()
+            if not proj:
+                proj = Project(
+                    id=str(uuid.uuid4()),
+                    challenge_id=ch.id,
+                    org_id=org_id,
+                    status="in_project",
+                    milestones_json=json.dumps([
+                        {"title": "Initial Problem Analysis & Architecture", "status": "completed"},
+                        {"title": "Research and Prototype Submission", "status": "completed"},
+                        {"title": "Solution Submission", "status": "in_progress" if new_funding_status == "Partially Funded" else "completed"},
+                        {"title": "Industry Deployment", "status": "in_progress" if new_funding_status == "Funded" else "pending"}
+                    ]),
+                    created_at=datetime.utcnow()
+                )
+                db.add(proj)
+                db.flush()
+
+            domain = ch.domain or "HealthTech"
+            options = UNIVERSITY_SOLUTIONS_MAP.get(domain, UNIVERSITY_SOLUTIONS_MAP.get("HealthTech", UNIVERSITY_SOLUTIONS_MAP["Default"]))
+            sol_tmpl = options[0] if options else {}
+
+            new_prop = Proposal(
+                id=proposal_id,
+                project_id=proj.id,
+                challenge_id=ch.id,
+                org_id=proj.org_id or org_id,
+                title=f"{domain} Solution: {ch.title.split('-')[0].strip()}",
+                problem_understanding=f"High impact technical intervention to resolve {ch.title} in {ch.location}.",
+                proposed_solution=sol_tmpl.get("solution_summary") or ch.official_description or "Scalable regional tech intervention.",
+                approach_methodology="Edge telemetry with solar backup and cloud analytics relay.",
+                trl=sol_tmpl.get("trl", "TRL-6 (Field Pilot Ready)"),
+                budget_required=f"₹{target_budget:,}",
+                budget_num=target_budget,
+                impact_metrics=sol_tmpl.get("impact_metrics", "Directly mitigates public civic issue."),
+                timeline="4 Months",
+                faculty_lead=sol_tmpl.get("faculty_lead", "Dr. Sharma (Research Lead)"),
+                contact_email=sol_tmpl.get("contact_email", "sharma.biomed@rims.ac.in"),
+                status="submitted",
+                funding_status=new_funding_status,
+                collaboration_status="Partnered",
+                funds_committed=current_funds,
+                partners=partners,
+                created_at=datetime.utcnow()
+            )
+            db.add(new_prop)
+            db.commit()
+    
+    remaining_budget = max(0, target_budget - current_funds)
+    pct = min(100, int((current_funds / target_budget) * 100)) if target_budget else 100
     
     return {
         "status": "success",
         "message": f"INR {req.amount:,} CSR Grant successfully allocated for {proposal_id}",
         "proposal_id": proposal_id,
         "funds_committed": current_funds,
-        "funding_status": "Funded"
+        "budget_num": target_budget,
+        "remaining_budget": remaining_budget,
+        "funding_percentage": pct,
+        "funding_status": new_funding_status,
+        "partners": partners
     }
 
 @router.post("/{proposal_id}/feedback")
