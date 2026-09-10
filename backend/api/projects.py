@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from db.database import get_db
 from db.models import Project, Proposal, Challenge, Organization, User
-from db.schemas import ProjectOut, ProposalDetailOut, ProposalCreate
+from db.schemas import ProjectOut, ProposalDetailOut, ProposalCreate, MilestonesUpdateRequest, ProjectStatusUpdate
 from api.auth import require_roles
 
 from api.proposals import PROPOSAL_STATE_OVERRIDES
@@ -214,3 +214,62 @@ def submit_or_save_proposal(
     db.commit()
     db.refresh(prop)
     return prop
+
+@router.patch("/{project_id}/milestones", response_model=ProjectOut)
+def update_project_milestones(
+    project_id: str,
+    req: MilestonesUpdateRequest,
+    current_user: User = Depends(require_roles("University", "Gov")),
+    db: Session = Depends(get_db)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if current_user.role == "University" and project.org_id and current_user.org_id != project.org_id:
+        raise HTTPException(status_code=403, detail="Not authorized to update milestones for other institutions' projects.")
+
+    milestones_data = [m.model_dump() for m in req.milestones]
+    project.milestones_json = json.dumps(milestones_data)
+
+    # Automatically synchronize project status if all milestones are completed or in progress
+    all_completed = all(m.get("status") == "completed" for m in milestones_data)
+    any_in_progress = any(m.get("status") == "in_progress" for m in milestones_data)
+    
+    if all_completed:
+        project.status = "deployed"
+        if project.challenge and project.challenge.status != "resolved":
+            project.challenge.status = "resolved"
+    elif any_in_progress and project.status in ["prototype", "pending"]:
+        project.status = "in_progress"
+
+    db.commit()
+    db.refresh(project)
+    return project
+
+@router.patch("/{project_id}/status", response_model=ProjectOut)
+def update_project_status(
+    project_id: str,
+    req: ProjectStatusUpdate,
+    current_user: User = Depends(require_roles("University", "Gov")),
+    db: Session = Depends(get_db)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if current_user.role == "University" and project.org_id and current_user.org_id != project.org_id:
+        raise HTTPException(status_code=403, detail="Not authorized to update status for other institutions' projects.")
+
+    valid_statuses = {"prototype", "in_progress", "proposal_submitted", "field_pilot", "deployed"}
+    if req.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status '{req.status}'. Must be one of {valid_statuses}")
+
+    project.status = req.status
+    if req.status == "deployed" and project.challenge:
+        project.challenge.status = "resolved"
+
+    db.commit()
+    db.refresh(project)
+    return project
+

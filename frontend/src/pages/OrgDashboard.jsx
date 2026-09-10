@@ -326,7 +326,42 @@ export default function OrgDashboard() {
                       </div>
                     )}
 
-                    {/* CSR Funding & Grant Accumulation Tracker */}
+                    {/* 1. Research & Delivery Progress Bar */}
+                    {(() => {
+                      let pMilestones = []
+                      try {
+                        if (p.milestones_json) {
+                          pMilestones = typeof p.milestones_json === 'string' ? JSON.parse(p.milestones_json) : p.milestones_json
+                        }
+                      } catch (e) {}
+                      const totalMilestones = 4
+                      const completedCount = Array.isArray(pMilestones) && pMilestones.length > 0
+                        ? pMilestones.filter(m => m.status === 'completed').length 
+                        : (hasProposal ? 3 : 1)
+                      const progressPct = Math.round((completedCount / totalMilestones) * 100)
+
+                      return (
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="font-semibold text-neutral-500 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                              Research & Delivery Progress
+                            </span>
+                            <span className="font-bold text-neutral-700 dark:text-neutral-300">
+                              {completedCount}/{totalMilestones} Phases ({progressPct}%)
+                            </span>
+                          </div>
+                          <div className="w-full bg-neutral-100 dark:bg-neutral-700 h-2 rounded-full overflow-hidden">
+                            <div 
+                              className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-300"
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* 2. CSR Funding & Grant Accumulation Tracker (if proposal exists) */}
                     {p.proposal && (
                       <div className="p-3.5 bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-white dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-neutral-900 border border-emerald-200/80 dark:border-emerald-800/40 rounded-xl space-y-2">
                         <div className="flex items-center justify-between text-xs">

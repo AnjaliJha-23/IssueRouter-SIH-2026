@@ -287,30 +287,80 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
                                 </div>
 
                                 {/* Lifecycle Timeline */}
+                                {/* Lifecycle Audit Trail */}
                                 <div className="space-y-3">
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Lifecycle Audit Trail</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Lifecycle Innovation Pipeline</h4>
                                     <div className="border-l-2 border-neutral-200 dark:border-neutral-700 ml-2.5 pl-4 py-1 space-y-4 text-xs">
+                                        {/* Stage 1 */}
                                         <div className="relative">
                                             <div className="absolute -left-[21.5px] top-0.5 w-2.5 h-2.5 rounded-full bg-blue-600 ring-4 ring-white dark:ring-neutral-900" />
-                                            <p className="font-bold text-neutral-900 dark:text-white">Issue Detected & Aggregated</p>
-                                            <p className="text-neutral-500 mt-0.5">Ingested via citizen submissions and multi-source public distress signals.</p>
+                                            <p className="font-bold text-neutral-900 dark:text-white">1. Ingested & AI Triaged</p>
+                                            <p className="text-neutral-500 mt-0.5">Ingested via citizen submissions and multi-source public distress signals. Domain & priority scored.</p>
                                         </div>
+
+                                        {/* Stage 2 */}
                                         <div className="relative">
                                             <div className={`absolute -left-[21.5px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-white dark:ring-neutral-900 ${challenge.verified ? 'bg-emerald-500' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
                                             <p className={`font-bold ${challenge.verified ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>
-                                                Government Verification
+                                                2. Government Verification
                                             </p>
                                             <p className="text-neutral-500 mt-0.5">
-                                                {challenge.verified ? 'Formally validated for innovation project routing.' : 'Awaiting administrative verification by desk officer.'}
+                                                {challenge.verified ? 'Formally validated by state desk officer for innovation routing.' : 'Under review by administrative officer.'}
                                             </p>
                                         </div>
+
+                                        {/* Stage 3 */}
                                         <div className="relative">
-                                            <div className={`absolute -left-[21.5px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-white dark:ring-neutral-900 ${challenge.status === 'routed' || challenge.status === 'in_project' ? 'bg-blue-500' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
-                                            <p className={`font-bold ${challenge.status === 'routed' || challenge.status === 'in_project' ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>
-                                                University Routing & Bidding
+                                            <div className={`absolute -left-[21.5px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-white dark:ring-neutral-900 ${['routed', 'in_project', 'proposal_submitted', 'partnered', 'resolved'].includes(challenge.status) ? 'bg-indigo-600' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
+                                            <p className={`font-bold ${['routed', 'in_project', 'proposal_submitted', 'partnered', 'resolved'].includes(challenge.status) ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>
+                                                3. University Routing & Bidding
                                             </p>
                                             <p className="text-neutral-500 mt-0.5">
-                                                {challenge.status === 'routed' ? 'Active invitation batch dispatched to university R&D departments.' : 'Awaiting dispatch.'}
+                                                {['routed', 'in_project', 'proposal_submitted', 'partnered', 'resolved'].includes(challenge.status) ? 'Dispatched to higher-education engineering departments with active SLA window.' : 'Awaiting dispatch.'}
+                                            </p>
+                                        </div>
+
+                                        {/* Stage 4 */}
+                                        <div className="relative">
+                                            <div className={`absolute -left-[21.5px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-white dark:ring-neutral-900 ${['in_project', 'proposal_submitted', 'partnered', 'resolved'].includes(challenge.status) ? 'bg-purple-600' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
+                                            <p className={`font-bold ${['in_project', 'proposal_submitted', 'partnered', 'resolved'].includes(challenge.status) ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>
+                                                4. University Research & Prototype
+                                            </p>
+                                            <p className="text-neutral-500 mt-0.5">
+                                                {['in_project', 'proposal_submitted', 'partnered', 'resolved'].includes(challenge.status) ? 'Challenge adopted by university engineering team; prototype development underway.' : 'Pending institutional acceptance.'}
+                                            </p>
+                                        </div>
+
+                                        {/* Stage 5 */}
+                                        <div className="relative">
+                                            <div className={`absolute -left-[21.5px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-white dark:ring-neutral-900 ${['proposal_submitted', 'partnered', 'resolved'].includes(challenge.status) || challenge.project?.proposal ? 'bg-blue-500' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
+                                            <p className={`font-bold ${['proposal_submitted', 'partnered', 'resolved'].includes(challenge.status) || challenge.project?.proposal ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>
+                                                5. Solution Proposal Submitted
+                                            </p>
+                                            <p className="text-neutral-500 mt-0.5">
+                                                {['proposal_submitted', 'partnered', 'resolved'].includes(challenge.status) || challenge.project?.proposal ? 'Engineering proposal with TRL readiness and budget roadmap submitted to Industry Portal.' : 'Pending proposal draft.'}
+                                            </p>
+                                        </div>
+
+                                        {/* Stage 6 */}
+                                        <div className="relative">
+                                            <div className={`absolute -left-[21.5px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-white dark:ring-neutral-900 ${['partnered', 'resolved'].includes(challenge.status) || (challenge.project?.proposal?.partners?.length > 0) ? 'bg-emerald-600' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
+                                            <p className={`font-bold ${['partnered', 'resolved'].includes(challenge.status) || (challenge.project?.proposal?.partners?.length > 0) ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>
+                                                6. Industry Partnering & CSR Grant
+                                            </p>
+                                            <p className="text-neutral-500 mt-0.5">
+                                                {['partnered', 'resolved'].includes(challenge.status) || (challenge.project?.proposal?.partners?.length > 0) ? 'Corporate CSR partnership active; funding and field deployment support allocated.' : 'Seeking industry partner.'}
+                                            </p>
+                                        </div>
+
+                                        {/* Stage 7 & 8 */}
+                                        <div className="relative">
+                                            <div className={`absolute -left-[21.5px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-white dark:ring-neutral-900 ${challenge.status === 'resolved' ? 'bg-emerald-500 ring-emerald-200 dark:ring-emerald-950' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
+                                            <p className={`font-bold ${challenge.status === 'resolved' ? 'text-emerald-700 dark:text-emerald-400' : 'text-neutral-400'}`}>
+                                                7 & 8. Field Deployment & Resolution
+                                            </p>
+                                            <p className="text-neutral-500 mt-0.5">
+                                                {challenge.status === 'resolved' ? 'Solution deployed on ground, verified by nodal desk, and marked resolved.' : 'Awaiting field trial & final inspection.'}
                                             </p>
                                         </div>
                                     </div>
