@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Layers, Clock, CheckCircle2, Target } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Layers, Clock, CheckCircle2, Target, TrendingUp, ArrowRight } from 'lucide-react'
 import FilterBar from '../components/ui/FilterBar'
 import ChallengeCard from '../components/ui/ChallengeCard'
 import ChallengeDetailDrawer from '../components/ui/ChallengeDetailDrawer'
@@ -136,6 +137,13 @@ export default function GovDashboard() {
     return dynamicCounts;
   }, [challenges])
 
+  const pipelineStats = useMemo(() => {
+    const list = Array.isArray(challenges) ? challenges : []
+    const inFlight = list.filter(c => c && ['routed', 'in_project', 'proposal_submitted', 'partnered'].includes(c.status)).length
+    const resolved = list.filter(c => c && c.status === 'resolved').length
+    return { inFlight, resolved }
+  }, [challenges])
+
   const visibleClusters = filtered.slice(0, visibleCount)
   const hasMore = visibleCount < filtered.length
   const remaining = filtered.length - visibleCount
@@ -247,6 +255,30 @@ export default function GovDashboard() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ── Active Innovation Pipeline Progress Banner ── */}
+      <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-purple-50/80 dark:from-neutral-900 dark:via-blue-950/30 dark:to-neutral-900 border border-blue-200/70 dark:border-blue-900/40 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+            <TrendingUp size={16} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-neutral-900 dark:text-white">
+              State Innovation Pipeline: <span className="text-blue-600 dark:text-blue-400 font-extrabold">{pipelineStats.inFlight} In University R&D</span> • <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{pipelineStats.resolved} Deployed & Resolved</span>
+            </p>
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+              Track multi-institutional deliverables, academic milestones, and field certifications in real time.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/progress"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 hover:text-blue-600 text-xs font-bold transition-all shadow-2xs self-start sm:self-auto cursor-pointer"
+        >
+          <span>Open Progress Hub</span>
+          <ArrowRight size={13} />
+        </Link>
       </div>
 
       {/* ── Filter bar ────────────────────────── */}

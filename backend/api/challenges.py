@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from db.database import get_db
 from db.models import Challenge, User, Organization, RoutingBatch, RoutingInvitation, Project, ChallengeEvidence
-from db.schemas import ChallengeOut, ChallengeCreate, ChallengeVerify, ChallengeRouteRequest, RoutingBatchOut, AssignmentOut
+from db.schemas import ChallengeOut, ChallengeCreate, ChallengeVerify, ChallengeRouteRequest, ChallengeResolveRequest, RoutingBatchOut, AssignmentOut
 from api.auth import get_current_user, get_optional_current_user, require_roles
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
@@ -55,12 +55,11 @@ def list_challenges(
 
     challenges = q.order_by(Challenge.created_at.desc()).all()
     
-    # Populate active_deadline for routed challenges
+    # Populate active_deadline for routed and in_project challenges
     for c in challenges:
-        if c.status == "routed":
+        if c.status in ["routed", "in_project"]:
             batch = db.query(RoutingBatch).filter(
-                RoutingBatch.challenge_id == c.id,
-                RoutingBatch.status == "active"
+                RoutingBatch.challenge_id == c.id
             ).order_by(desc(RoutingBatch.created_at)).first()
             if batch:
                 c.active_deadline = batch.deadline
@@ -78,10 +77,9 @@ def get_my_challenges(
     ).order_by(Challenge.created_at.desc()).all()
 
     for c in challenges:
-        if c.status == "routed":
+        if c.status in ["routed", "in_project"]:
             batch = db.query(RoutingBatch).filter(
-                RoutingBatch.challenge_id == c.id,
-                RoutingBatch.status == "active"
+                RoutingBatch.challenge_id == c.id
             ).order_by(desc(RoutingBatch.created_at)).first()
             if batch:
                 c.active_deadline = batch.deadline
@@ -446,3 +444,39 @@ def decline_invitation(
     invitation.responded_at = datetime.utcnow()
     db.commit()
     return {"message": "Invitation declined", "invitation_id": invitation.id, "status": "rejected"}
+
+@router.patch("/{challenge_id}/resolve", response_model=ChallengeOut)
+def resolve_challenge(
+    challenge_id: str,
+    req: ChallengeResolveRequest,
+    current_user: User = Depends(require_roles("Gov")),
+    db: Session = Depends(get_db)
+):
+    """
+    Formally resolves a challenge. Accessible by Government nodal officers.
+    Marks challenge status as resolved, advances linked project to deployed,
+    and completes all project milestones.
+    """
+    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    challenge.status = "resolved"
+    challenge.verified = True
+
+    # Also synchronize the linked project if present
+    project = db.query(Project).filter(Project.challenge_id == challenge.id).first()
+    if project:
+        project.status = "deployed"
+        try:
+            m_list = json.loads(project.milestones_json) if isinstance(project.milestones_json, str) else (project.milestones_json or [])
+            for m in m_list:
+                m["status"] = "completed"
+            project.milestones_json = json.dumps(m_list)
+        except Exception:
+            pass
+
+    db.commit()
+    db.refresh(challenge)
+    return challenge
+

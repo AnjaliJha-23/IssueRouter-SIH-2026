@@ -102,6 +102,18 @@ class ProposalCreate(BaseModel):
     is_draft: Optional[bool] = False
 
 # ── Project ────────────────────────────────────────────────────────────────
+class MilestoneItem(BaseModel):
+    title: str
+    status: str # 'pending', 'in_progress', 'completed'
+    description: Optional[str] = None
+    completed_at: Optional[datetime] = None
+
+class MilestonesUpdateRequest(BaseModel):
+    milestones: List[MilestoneItem]
+
+class ProjectStatusUpdate(BaseModel):
+    status: str # 'prototype', 'in_progress', 'field_pilot', 'deployed'
+
 class ProjectOut(BaseModel):
     id: str
     challenge_id: str
@@ -204,6 +216,10 @@ class ChallengeRouteRequest(BaseModel):
     org_ids: List[str]
     deadline: datetime
     note: Optional[str] = None
+
+class ChallengeResolveRequest(BaseModel):
+    resolution_summary: Optional[str] = "Solution field-tested and deployed successfully in community."
+    impact_verified: Optional[bool] = True
 
 class RoutingInvitationOut(BaseModel):
     id: str

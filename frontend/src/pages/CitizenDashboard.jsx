@@ -16,7 +16,8 @@ import {
   Building,
   HelpCircle,
   FileText,
-  Clock
+  Clock,
+  TrendingUp
 } from 'lucide-react'
 
 // All 24 districts of Jharkhand
@@ -72,13 +73,31 @@ export default function CitizenDashboard() {
   const [submitting, setSubmitting] = useState(false)
   const [successChallenge, setSuccessChallenge] = useState(null)
 
-  // Community feed
+  // Community feed & My Submissions
   const [recentChallenges, setRecentChallenges] = useState([])
   const [loadingRecent, setLoadingRecent] = useState(true)
+  const [myChallenges, setMyChallenges] = useState([])
+  const [loadingMy, setLoadingMy] = useState(true)
 
   useEffect(() => {
     fetchCommunityChallenges()
+    fetchMyChallenges()
   }, [])
+
+  const fetchMyChallenges = async () => {
+    setLoadingMy(true)
+    try {
+      const res = await authFetch('/api/challenges/my')
+      if (res && res.ok) {
+        const data = await res.json()
+        setMyChallenges(Array.isArray(data) ? data : [])
+      }
+    } catch (e) {
+      console.error('Failed to load user challenges', e)
+    } finally {
+      setLoadingMy(false)
+    }
+  }
 
   const fetchCommunityChallenges = async () => {
     setLoadingRecent(true)
@@ -670,6 +689,92 @@ export default function CitizenDashboard() {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* My Submitted Challenges (Active Progress Tracker) */}
+          <div className="bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white dark:from-neutral-900 dark:via-blue-950/20 dark:to-neutral-900 rounded-2xl border border-blue-200/80 dark:border-blue-900/40 p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  <TrendingUp size={14} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    My Submissions Progress
+                  </h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Live tracking across 8 lifecycle stages
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/progress')}
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                Track all <ArrowRight size={12} />
+              </button>
+            </div>
+
+            {loadingMy ? (
+              <div className="p-4 text-center text-xs text-slate-400 animate-pulse">
+                Loading your tracked issues...
+              </div>
+            ) : myChallenges.length === 0 ? (
+              <div className="p-4 text-center rounded-xl bg-white/60 dark:bg-neutral-800/40 border border-slate-100 dark:border-neutral-800 text-xs text-slate-500">
+                You haven't reported any challenges yet. Submit an issue using the form to track its resolution journey.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {myChallenges.slice(0, 3).map((c) => {
+                  const stageNum = (() => {
+                    switch (c.status) {
+                      case 'pending_verification': return 2;
+                      case 'verified': case 'matches_suggested': case 'ready_for_routing': return 3;
+                      case 'routed': return 4;
+                      case 'in_project': return 5;
+                      case 'proposal_submitted': return 6;
+                      case 'partnered': return 7;
+                      case 'resolved': return 8;
+                      default: return 1;
+                    }
+                  })();
+                  const percent = Math.round((stageNum / 8) * 100);
+
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => navigate('/progress')}
+                      className="p-3 rounded-xl bg-white dark:bg-neutral-800/80 border border-slate-200/70 dark:border-neutral-700/60 hover:border-blue-300 dark:hover:border-blue-600 transition-all cursor-pointer shadow-2xs space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-1">
+                          {c.title}
+                        </h4>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex-shrink-0">
+                          Stage {stageNum}/8
+                        </span>
+                      </div>
+
+                      {/* Mini Progress Bar */}
+                      <div className="w-full bg-slate-100 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>{c.domain || 'Civic Problem'}</span>
+                        <span className="font-semibold text-blue-600 dark:text-blue-400 capitalize">
+                          {c.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Recent Community Challenges (Privacy Preserving) */}

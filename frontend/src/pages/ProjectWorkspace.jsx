@@ -187,31 +187,51 @@ export default function ProjectWorkspace() {
     'Industry Deployment',
   ]
 
-  let milestones = []
+  let rawMilestones = []
   try {
     if (project.milestones_json) {
-      milestones = typeof project.milestones_json === 'string' ? JSON.parse(project.milestones_json) : project.milestones_json
+      rawMilestones = typeof project.milestones_json === 'string' ? JSON.parse(project.milestones_json) : project.milestones_json
     }
   } catch (e) {
     console.error('Error parsing milestones', e)
   }
 
-  if (Array.isArray(milestones) && milestones.length === 4) {
-    milestones = milestones.map((m, idx) => ({
-      ...m,
-      title: PHASE_TITLES[idx] || m.title,
-      status: isSubmitted ? (idx < 3 ? 'completed' : 'pending') : m.status,
-    }))
-  } else if (isSubmitted) {
-    milestones = PHASE_TITLES.map((title, idx) => ({
-      title,
-      status: idx < 3 ? 'completed' : 'pending',
-    }))
-  } else {
-    milestones = PHASE_TITLES.map((title, idx) => ({
-      title,
+  const milestones = PHASE_TITLES.map((defaultTitle, idx) => {
+    const existing = Array.isArray(rawMilestones) && rawMilestones[idx]
+    if (existing) {
+      return {
+        title: existing.title || defaultTitle,
+        status: existing.status || 'pending',
+      }
+    }
+    return {
+      title: defaultTitle,
       status: idx === 0 ? 'completed' : idx === 1 ? 'in_progress' : 'pending',
-    }))
+    }
+  })
+
+  const completedMilestones = milestones.filter(m => m.status === 'completed').length
+  const progressPercent = Math.round((completedMilestones / milestones.length) * 100)
+
+  const handleUpdateMilestoneStatus = async (index, newStatus) => {
+    const updated = milestones.map((m, idx) => 
+      idx === index ? { ...m, status: newStatus } : m
+    )
+    try {
+      const res = await authFetch(`/api/projects/${id}/milestones`, {
+        method: 'PATCH',
+        body: JSON.stringify({ milestones: updated })
+      })
+      if (res && res.ok) {
+        showToast(`Phase ${index + 1} updated to ${newStatus.replace('_', ' ')}!`, 'success')
+        await fetchProject()
+      } else {
+        showToast('Failed to update milestone.', 'error')
+      }
+    } catch (e) {
+      console.error(e)
+      showToast('Network error updating milestone.', 'error')
+    }
   }
 
   return (
@@ -699,15 +719,35 @@ export default function ProjectWorkspace() {
       </div>
 
       {/* ══════════════════════════════════════════════════
-          PROJECT MILESTONES (COLLAPSIBLE / SUMMARY)
+          PROJECT MILESTONES (INTERACTIVE DELIVERY PIPELINE)
           ══════════════════════════════════════════════════ */}
       <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-6 shadow-sm space-y-4">
-        <h4 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-          <Layers className="w-4 h-4 text-blue-600" />
-          Project Delivery Pipeline
-        </h4>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-100 dark:border-neutral-700/60">
+          <div>
+            <h4 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+              <Layers className="w-4 h-4 text-blue-600" />
+              Project Delivery Pipeline & Milestones
+            </h4>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Track and update your research deliverables. Completing milestones updates statewide progress trackers.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
+              {completedMilestones} of {milestones.length} Completed ({progressPercent}%)
+            </span>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Visual Progress Bar */}
+        <div className="w-full bg-neutral-100 dark:bg-neutral-700 h-2.5 rounded-full overflow-hidden">
+          <div 
+            className="bg-gradient-to-r from-blue-600 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
           {milestones.map((m, idx) => {
             const isDone = m.status === 'completed'
             const isInProg = m.status === 'in_progress'
@@ -715,36 +755,75 @@ export default function ProjectWorkspace() {
             return (
               <div
                 key={idx}
-                className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2 ${isDone
+                className={`p-3.5 rounded-xl border flex flex-col justify-between gap-3 transition-all ${isDone
                   ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
                   : isInProg
-                    ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/40'
+                    ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/40 ring-1 ring-blue-300/40'
                     : 'bg-neutral-50 dark:bg-neutral-900/30 border-neutral-200 dark:border-neutral-700'
                   }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase">Phase {idx + 1}</span>
-                  {isDone ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  ) : isInProg ? (
-                    <Circle className="w-4 h-4 text-blue-500 fill-blue-500/20" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-neutral-300 dark:text-neutral-600" />
-                  )}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase">Phase {idx + 1}</span>
+                    {isDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : isInProg ? (
+                      <Circle className="w-4 h-4 text-blue-500 fill-blue-500/20 animate-pulse" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-neutral-300 dark:text-neutral-600" />
+                    )}
+                  </div>
+
+                  <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200 leading-snug">
+                    {m.title}
+                  </p>
                 </div>
 
-                <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200 leading-snug">
-                  {m.title}
-                </p>
+                <div className="space-y-2 pt-2 border-t border-neutral-100 dark:border-neutral-700/60">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[9.5px] uppercase font-extrabold px-2 py-0.5 rounded ${isDone
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
+                      : isInProg
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
+                        : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-400'
+                      }`}>
+                      {m.status.replace('_', ' ')}
+                    </span>
+                  </div>
 
-                <span className={`text-[9.5px] uppercase font-extrabold px-2 py-0.5 rounded self-start ${isDone
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
-                  : isInProg
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
-                    : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-400'
-                  }`}>
-                  {m.status.replace('_', ' ')}
-                </span>
+                  {/* Interactive Status Toggle Buttons */}
+                  <div className="flex items-center gap-1.5">
+                    {!isDone ? (
+                      <>
+                        {isInProg ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateMilestoneStatus(idx, 'completed')}
+                            className="w-full text-[11px] font-bold py-1 px-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <Check className="w-3 h-3" /> Mark Done
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateMilestoneStatus(idx, 'in_progress')}
+                            className="w-full text-[11px] font-bold py-1 px-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer"
+                          >
+                            Start Phase
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateMilestoneStatus(idx, 'in_progress')}
+                        className="w-full text-[10px] font-semibold py-1 px-2 rounded border border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
+                      >
+                        Reopen Phase
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )
           })}
