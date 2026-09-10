@@ -378,24 +378,68 @@ export default function ProjectWorkspace() {
               </div>
             </div>
 
-            {/* Submitted Proposal Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
-                <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Required Budget</span>
-                <p className="text-lg font-extrabold text-neutral-900 dark:text-white mt-0.5">{p.budget_required}</p>
-                <span className="text-[11px] text-neutral-500">CSR Grant Target</span>
-              </div>
-              <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
-                <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Readiness Level</span>
-                <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{p.trl}</p>
-                <span className="text-[11px] text-neutral-500">Deployment Staging</span>
-              </div>
-              <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
-                <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Timeline</span>
-                <p className="text-lg font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{p.timeline || '4 Months'}</p>
-                <span className="text-[11px] text-neutral-500">Pilot Completion</span>
-              </div>
-            </div>
+            {/* Submitted Proposal Summary Cards with CSR Funding Progress */}
+            {(() => {
+              const target = p.budget_num || (p.budget_required ? Number(String(p.budget_required).replace(/[^0-9]/g, '')) || 850000 : 850000)
+              const committed = p.funds_committed || 0
+              const pct = Math.min(100, Math.round((committed / target) * 100))
+              const remaining = Math.max(0, target - committed)
+
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                      <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Required Budget</span>
+                      <p className="text-lg font-extrabold text-neutral-900 dark:text-white mt-0.5">{p.budget_required || `₹${target.toLocaleString('en-IN')}`}</p>
+                      <span className="text-[11px] text-neutral-500">CSR Grant Goal</span>
+                    </div>
+
+                    <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/40">
+                      <div className="flex justify-between items-start">
+                        <span className="text-[10.5px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">Accumulated Funds</span>
+                        <span className="text-[10px] font-extrabold px-2 py-0.2 bg-emerald-600 text-white rounded-full">{pct}%</span>
+                      </div>
+                      <p className="text-lg font-extrabold text-emerald-700 dark:text-emerald-400 mt-0.5">₹{committed.toLocaleString('en-IN')}</p>
+                      <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">
+                        {remaining === 0 ? 'Goal Reached 🎉' : `₹${remaining.toLocaleString('en-IN')} remaining`}
+                      </span>
+                    </div>
+
+                    <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                      <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Readiness Level</span>
+                      <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{p.trl}</p>
+                      <span className="text-[11px] text-neutral-500">Deployment Staging</span>
+                    </div>
+
+                    <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                      <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Timeline & Sponsors</span>
+                      <p className="text-lg font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{p.timeline || '4 Months'}</p>
+                      <span className="text-[11px] text-neutral-500 truncate block">
+                        {p.partners && p.partners.length > 0 ? p.partners.join(', ') : 'Open for Sponsorship'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Funding Progress Bar */}
+                  <div className="p-3 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl border border-neutral-100 dark:border-neutral-800 space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-neutral-800 dark:text-neutral-200">
+                        CSR Capital Allocation Progress
+                      </span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        ₹{committed.toLocaleString('en-IN')} / ₹{target.toLocaleString('en-IN')} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-2.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Proposal Details Content */}
             <div className="space-y-4 text-xs">
