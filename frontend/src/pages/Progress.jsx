@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useIssues } from '../context/IssueContext'
+import { useAuth } from '../context/AuthContext'
+import { authFetch } from '../api/client'
+import CitizenProgress from './CitizenProgress'
 import {
     ChevronDown,
     ChevronUp,
@@ -233,6 +236,12 @@ function AccountabilityPanel({ cluster, officer, timeLeft, dueAt, onResolve }) {
 }
 
 export default function Progress() {
+    const { user } = useAuth()
+
+    if (user?.role === 'Citizen') {
+        return <CitizenProgress />
+    }
+
     const [expandedId, setExpandedId] = useState(null)
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
@@ -246,7 +255,7 @@ export default function Progress() {
             setLoading(true);
             try {
                 // Fetch all challenges that are no longer in the active government queue
-                const res = await fetch('/api/challenges/').catch(() => fetch('http://localhost:8000/api/challenges/'));
+                const res = await authFetch('/api/challenges/')
                 if (res && res.ok) {
                     const data = await res.json();
                     if (Array.isArray(data)) {

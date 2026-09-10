@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 
 const AuthContext = createContext()
 
@@ -18,26 +18,44 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [loading, setLoading] = useState(false)
 
+  const logout = useCallback(() => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setToken(null)
+    setUser(null)
+  }, [])
+
   useEffect(() => {
     if (token) {
-      // Sync user profile in background
-      fetch('/api/auth/me?email=admin', {
+      // Sync authenticated user profile from backend
+      fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      .then(res => res.json())
+      .then(res => {
+        if (res.status === 401) {
+          // Token is expired or invalid
+          logout()
+          return null
+        }
+        return res.ok ? res.json() : null
+      })
       .then(data => {
         if (data && data.name) {
-          setUser(prev => ({
-            ...prev,
-            ...data
-          }))
+          setUser(prev => {
+            const updated = {
+              ...prev,
+              ...data
+            }
+            localStorage.setItem('user', JSON.stringify(updated))
+            return updated
+          })
         }
       })
       .catch(() => {
         // Keep existing localStorage user if offline
       })
     }
-  }, [token])
+  }, [token, logout])
 
   const login = async (email, password) => {
     try {
@@ -74,11 +92,8 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    setToken(null)
-    setUser(null)
+  const getAuthHeaders = () => {
+    return token ? { 'Authorization': `Bearer ${token}` } : {}
   }
 
   const value = {
@@ -86,7 +101,8 @@ export function AuthProvider({ children }) {
     token,
     login,
     logout,
-    loading
+    loading,
+    getAuthHeaders
   }
 
   return (

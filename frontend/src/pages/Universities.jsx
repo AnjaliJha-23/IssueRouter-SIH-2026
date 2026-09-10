@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { GraduationCap, MapPin, CheckCircle2, XCircle, Search, Filter, Plus, X, Building2, Activity, Pencil } from 'lucide-react'
+import { authFetch } from '../api/client'
 
 export default function Universities() {
     const [universities, setUniversities] = useState([])
@@ -26,10 +27,10 @@ export default function Universities() {
     const fetchUniversities = async () => {
         setLoading(true)
         try {
-            const res = await fetch('http://localhost:8000/api/universities/')
+            const res = await authFetch('/api/universities/')
             if (res.ok) setUniversities(await res.json())
         } catch (e) {
-            console.error(e)
+            console.error("Failed to fetch universities", e)
         } finally {
             setLoading(false)
         }
@@ -75,13 +76,12 @@ export default function Universities() {
     const handleSave = async () => {
         try {
             const url = isEditing 
-                ? `http://localhost:8000/api/universities/${selectedUni.id}` 
-                : 'http://localhost:8000/api/universities/';
+                ? `/api/universities/${selectedUni.id}` 
+                : '/api/universities/';
             const method = isEditing ? 'PUT' : 'POST';
 
-            const res = await fetch(url, {
+            const res = await authFetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             })
 
@@ -99,7 +99,7 @@ export default function Universities() {
     const handleToggleStatus = async (uni) => {
         const newStatus = uni.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
         try {
-            const res = await fetch(`http://localhost:8000/api/universities/${uni.id}/status?status=${newStatus}`, { method: 'PATCH' })
+            const res = await authFetch(`/api/universities/${uni.id}/status?status=${newStatus}`, { method: 'PATCH' })
             if (res.ok) {
                 const updated = await res.json()
                 setUniversities(universities.map(u => u.id === updated.id ? updated : u))

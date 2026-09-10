@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from db.database import get_db
-from db.models import Project, Proposal, Challenge, Organization
+from db.models import Project, Proposal, Challenge, Organization, User
 from db.schemas import ProjectOut, ProposalDetailOut, ProposalCreate
+from api.auth import require_roles
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -26,22 +27,34 @@ def _parse_budget_num(val: Optional[str], default_num: Optional[int] = None) -> 
 @router.get("/", response_model=List[ProjectOut])
 def list_projects(
     org_id: Optional[str] = Query(None, description="Filter projects by University organization ID"),
+    current_user: User = Depends(require_roles("Gov", "University", "Industry")),
     db: Session = Depends(get_db)
 ):
     q = db.query(Project)
-    if org_id:
+    if current_user.role == "University":
+        q = q.filter(Project.org_id == current_user.org_id)
+    elif org_id:
         q = q.filter(Project.org_id == org_id)
     return q.order_by(Project.created_at.desc()).all()
 
 @router.get("/{project_id}", response_model=ProjectOut)
-def get_project(project_id: str, db: Session = Depends(get_db)):
+def get_project(
+    project_id: str,
+    current_user: User = Depends(require_roles("Gov", "University", "Industry")),
+    db: Session = Depends(get_db)
+):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
 @router.post("/{project_id}/proposal", response_model=ProposalDetailOut)
-def submit_or_save_proposal(project_id: str, req: ProposalCreate, db: Session = Depends(get_db)):
+def submit_or_save_proposal(
+    project_id: str,
+    req: ProposalCreate,
+    current_user: User = Depends(require_roles("University", "Gov")),
+    db: Session = Depends(get_db)
+):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -50,9 +63,8 @@ def submit_or_save_proposal(project_id: str, req: ProposalCreate, db: Session = 
     if not challenge:
         raise HTTPException(status_code=404, detail="Associated challenge not found")
 
-    org_id = project.org_id
+    org_id = current_user.org_id if current_user.role == "University" else project.org_id
     if not org_id:
-        # Fallback to university org if not set
         first_uni = db.query(Organization).filter(Organization.type == "University").first()
         org_id = first_uni.id if first_uni else "org-univ-1"
         project.org_id = org_id

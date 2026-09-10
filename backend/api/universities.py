@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from db.database import get_db
-from db.models import Organization
+from db.models import Organization, User
 from db.schemas import OrganizationOut, OrganizationCreate, OrganizationUpdate
+from api.auth import require_roles
 
 router = APIRouter(prefix="/api/universities", tags=["universities"])
 
@@ -18,6 +19,7 @@ def list_universities(
     domain: Optional[str] = Query(None, description="Filter by domain keyword"),
     district: Optional[str] = Query(None, description="Filter by district"),
     search: Optional[str] = Query(None, description="Search query by name"),
+    current_user: User = Depends(require_roles("Gov", "University", "Industry")),
     db: Session = Depends(get_db)
 ):
     q = db.query(Organization).filter(Organization.type == "University")
@@ -31,18 +33,25 @@ def list_universities(
     if search:
         q = q.filter(Organization.name.ilike(f"%{search}%"))
 
-    # Order by name alphabetically
     return q.order_by(Organization.name.asc()).all()
 
 @router.get("/{org_id}", response_model=OrganizationOut)
-def get_university(org_id: str, db: Session = Depends(get_db)):
+def get_university(
+    org_id: str,
+    current_user: User = Depends(require_roles("Gov", "University", "Industry")),
+    db: Session = Depends(get_db)
+):
     org = db.query(Organization).filter(Organization.id == org_id, Organization.type == "University").first()
     if not org:
         raise HTTPException(status_code=404, detail="University not found")
     return org
 
 @router.post("/", response_model=OrganizationOut)
-def create_university(req: OrganizationCreate, db: Session = Depends(get_db)):
+def create_university(
+    req: OrganizationCreate,
+    current_user: User = Depends(require_roles("Gov")),
+    db: Session = Depends(get_db)
+):
     existing = db.query(Organization).filter(Organization.name == req.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Organization with this name already exists")
@@ -64,7 +73,12 @@ def create_university(req: OrganizationCreate, db: Session = Depends(get_db)):
     return new_org
 
 @router.put("/{org_id}", response_model=OrganizationOut)
-def update_university(org_id: str, req: OrganizationUpdate, db: Session = Depends(get_db)):
+def update_university(
+    org_id: str,
+    req: OrganizationUpdate,
+    current_user: User = Depends(require_roles("Gov")),
+    db: Session = Depends(get_db)
+):
     org = db.query(Organization).filter(Organization.id == org_id, Organization.type == "University").first()
     if not org:
         raise HTTPException(status_code=404, detail="University not found")
@@ -78,7 +92,12 @@ def update_university(org_id: str, req: OrganizationUpdate, db: Session = Depend
     return org
 
 @router.patch("/{org_id}/status", response_model=OrganizationOut)
-def update_university_status(org_id: str, status: str, db: Session = Depends(get_db)):
+def update_university_status(
+    org_id: str,
+    status: str,
+    current_user: User = Depends(require_roles("Gov")),
+    db: Session = Depends(get_db)
+):
     org = db.query(Organization).filter(Organization.id == org_id, Organization.type == "University").first()
     if not org:
         raise HTTPException(status_code=404, detail="University not found")

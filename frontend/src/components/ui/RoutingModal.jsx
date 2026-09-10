@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { X, Building2, Target, CheckCircle2, AlertCircle, Clock, Search, Plus } from 'lucide-react'
+import { authFetch } from '../../api/client'
 
 export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) {
     const [matches, setMatches] = useState([])
@@ -37,7 +38,7 @@ export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) 
     const fetchMatches = async () => {
         setLoadingMatches(true)
         try {
-            const res = await fetch(`http://localhost:8000/api/matches/generate/${challenge.id}`, { method: 'POST' })
+            const res = await authFetch(`/api/matches/generate/${challenge.id}`, { method: 'POST' })
             if (res.ok) {
                 const data = await res.json()
                 setMatches(data)
@@ -55,12 +56,12 @@ export default function RoutingModal({ challenge, isOpen, onClose, onConfirm }) 
     const fetchAllUniversities = async () => {
         setLoadingAll(true)
         try {
-            const res = await fetch(`http://localhost:8000/api/universities/?status=ACTIVE`)
+            const res = await authFetch(`/api/universities/?status=ACTIVE`)
             if (res.ok) {
                 setAllUniversities(await res.json())
             }
         } catch (e) {
-            console.error(e)
+            console.error("Failed to load universities", e)
         } finally {
             setLoadingAll(false)
         }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { authFetch } from '../api/client'
 import { 
   FolderGit2, 
   CheckCircle2, 
@@ -72,7 +73,7 @@ export default function ProjectWorkspace() {
   const fetchProject = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/projects/${id}`).catch(() => fetch(`http://localhost:8000/api/projects/${id}`))
+      const res = await authFetch(`/api/projects/${id}`)
       if (res && res.ok) {
         const data = await res.json()
         setProject(data)
@@ -125,11 +126,6 @@ export default function ProjectWorkspace() {
   }
 
   const handleSubmitProposal = async (isDraft = false) => {
-    if (!formData.solution_title.trim() || !formData.proposed_solution.trim()) {
-      showToast('Please provide at least a Solution Title and Solution Description.', 'error')
-      return
-    }
-
     setSubmitting(true)
     try {
       const payload = {
@@ -137,15 +133,10 @@ export default function ProjectWorkspace() {
         is_draft: isDraft
       }
 
-      const res = await fetch(`/api/projects/${id}/proposal`, {
+      const res = await authFetch(`/api/projects/${id}/proposal`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      }).catch(() => fetch(`http://localhost:8000/api/projects/${id}/proposal`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }))
+      })
 
       if (res && res.ok) {
         showToast(

@@ -66,3 +66,7 @@ out/
 *.db-journal
 *.sqlite
 *.sqlite3
+
+# Uploaded evidence files
+backend/uploads/
+
