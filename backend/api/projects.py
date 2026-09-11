@@ -19,12 +19,13 @@ from api.proposals import PROPOSAL_STATE_OVERRIDES
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 def _parse_budget_num(val: Optional[str], default_num: Optional[int] = None) -> int:
+    if val:
+        digits = re.sub(r'[^\d]', '', str(val))
+        if digits:
+            return int(digits)
     if default_num is not None and default_num > 0:
         return default_num
-    if not val:
-        return 750000
-    digits = re.sub(r'[^\d]', '', str(val))
-    return int(digits) if digits else 750000
+    return 850000
 
 @router.get("/", response_model=List[ProjectOut])
 def list_projects(
@@ -74,7 +75,9 @@ def get_industry_funded_projects(
         
         # Include if funded/partnered or if has commitments
         if funds_committed > 0 or funding_status in ["Funded", "Partially Funded"] or any(org_name.lower() in str(pt).lower() for pt in partners):
-            b_num = (prop.budget_num if prop else 850000) or 850000
+            digits = re.sub(r'[^\d]', '', str(prop.budget_required if prop else ''))
+            parsed_req = int(digits) if digits else 0
+            b_num = (prop.budget_num if prop and prop.budget_num else None) or parsed_req or 850000
             rem = max(0, b_num - funds_committed)
             pct = min(100, int((funds_committed / b_num) * 100)) if b_num else 100
             
