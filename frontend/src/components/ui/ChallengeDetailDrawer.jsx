@@ -4,7 +4,6 @@ import {
     X,
     MapPin,
     Building2,
-    Sparkles,
     CheckCircle2,
     ShieldCheck,
     Share2,
@@ -13,7 +12,6 @@ import {
     GraduationCap,
     Clock,
     FileText,
-    Activity,
     ExternalLink,
     Image as ImageIcon,
     ZoomIn,
@@ -51,7 +49,7 @@ const EVIDENCE_IMAGES = [
 ]
 
 export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRoute }) {
-    const [activeTab, setActiveTab] = useState('overview') // 'overview', 'evidence', 'intelligence', 'matches'
+    const [activeTab, setActiveTab] = useState('overview') // 'overview', 'evidence', 'matches'
     const [selectedImage, setSelectedImage] = useState(null)
     const [matches, setMatches] = useState([])
     const [loadingMatches, setLoadingMatches] = useState(false)
@@ -140,7 +138,6 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
                         {[
                             { id: 'overview', label: 'Dossier Overview' },
                             { id: 'evidence', label: `Evidence (${(challenge.source_counts?.social || 0) + (challenge.source_counts?.citizen || 1)})` },
-                            { id: 'intelligence', label: 'AI Rationale' },
                             { id: 'matches', label: `University Matches (${matches.length || 0})` },
                         ].map((tab) => (
                             <button
@@ -237,13 +234,6 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
                                         <div>
                                             <p className="text-[10.5px] uppercase font-bold text-neutral-400">Responsible Dept</p>
                                             <p className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">{challenge.department || challenge.domain || 'General'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-2.5">
-                                        <Activity size={16} className="text-neutral-400 mt-0.5" />
-                                        <div>
-                                            <p className="text-[10.5px] uppercase font-bold text-neutral-400">AI Confidence</p>
-                                            <p className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">{Math.round((challenge.ai_confidence || 0.92) * 100)}% Verified</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2.5">
@@ -496,64 +486,6 @@ export default function ChallengeDetailDrawer({ challenge, isOpen, onClose, onRo
                                         </button>
                                     </div>
                                 )}
-                            </div>
-                        )}
-
-                        {/* ── TAB: INTELLIGENCE ── */}
-                        {activeTab === 'intelligence' && (
-                            <div className="space-y-6 animate-fade-in-up">
-                                <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <Sparkles className="text-indigo-600 dark:text-indigo-400" size={18} />
-                                            <h4 className="text-sm font-bold text-indigo-950 dark:text-indigo-200">AI Triage & Scoring Model</h4>
-                                        </div>
-                                        <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 rounded">
-                                            Confidence: {Math.round((challenge.ai_confidence || 0.92) * 100)}%
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-indigo-800/80 dark:text-indigo-300/80 leading-relaxed">
-                                        BART-large-MNLI zero-shot classification assessed domain suitability and computed societal impact weights based on multi-factor ground telemetry.
-                                    </p>
-                                </div>
-
-                                {/* Priority Breakdown Bars */}
-                                <div className="space-y-3">
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Score Composition Breakdown</h4>
-                                    <div className="space-y-3">
-                                        {[
-                                            { label: 'Population Impact & Density', val: 25, max: 25, color: 'bg-rose-500' },
-                                            { label: 'Severity & Critical Risk Factor', val: 20, max: 25, color: 'bg-amber-500' },
-                                            { label: 'Distress Signal Frequency & Velocity', val: 18, max: 20, color: 'bg-blue-500' },
-                                            { label: 'Vulnerability of Affected Ward/Block', val: 15, max: 15, color: 'bg-purple-500' },
-                                            { label: 'Verified Citizen Corroboration', val: 10, max: 15, color: 'bg-emerald-500' },
-                                        ].map((bar) => (
-                                            <div key={bar.label} className="space-y-1">
-                                                <div className="flex justify-between text-xs font-semibold">
-                                                    <span className="text-neutral-700 dark:text-neutral-300">{bar.label}</span>
-                                                    <span className="text-neutral-500">+{bar.val} pts</span>
-                                                </div>
-                                                <div className="h-2 w-full bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
-                                                    <div className={`h-full ${bar.color} rounded-full`} style={{ width: `${(bar.val / bar.max) * 100}%` }} />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Deduplication Result */}
-                                <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 flex items-center justify-between">
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Semantic Deduplication Engine</p>
-                                        <p className="text-sm font-bold text-neutral-900 dark:text-white mt-0.5">
-                                            {Math.round((challenge.duplicate_risk || 0.08) * 100)}% Duplicate Probability
-                                        </p>
-                                        <p className="text-xs text-neutral-500 mt-0.5">No duplicate clusters identified in current 30-day window.</p>
-                                    </div>
-                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40">
-                                        Unique Challenge
-                                    </span>
-                                </div>
                             </div>
                         )}
 
