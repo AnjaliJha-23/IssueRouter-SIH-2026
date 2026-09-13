@@ -370,7 +370,7 @@ export default function OrgDashboard() {
                             <span>CSR Grant Accumulation</span>
                           </div>
                           <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
-                            p.proposal.funding_status === 'Funded' || (p.proposal.funds_committed >= (p.proposal.budget_num || 850000))
+                            p.proposal.funding_status === 'Funded' || (p.proposal.funds_committed >= (Number(String(p.proposal.budget_required || p.proposal.budget_num || '').replace(/[^0-9]/g, '')) || 850000))
                               ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200'
                               : (p.proposal.funds_committed > 0 || p.proposal.funding_status === 'Partially Funded')
                                 ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-200'
@@ -380,12 +380,13 @@ export default function OrgDashboard() {
                           </span>
                         </div>
 
-                        {/* Progress Bar and Amounts */}
-                        {(() => {
-                          const target = p.proposal.budget_num || 850000
-                          const committed = p.proposal.funds_committed || 0
-                          const pct = Math.min(100, Math.round((committed / target) * 100))
-                          const remaining = Math.max(0, target - committed)
+                          {(() => {
+                            const rawTarget = p.proposal.budget_required || p.proposal.budget_num || ''
+                            const cleaned = String(rawTarget).replace(/[^0-9]/g, '')
+                            const target = cleaned ? parseInt(cleaned, 10) : (Number(p.proposal.budget_num) || 850000)
+                            const committed = p.proposal.funds_committed || 0
+                            const pct = target > 0 ? Math.min(100, Math.round((committed / target) * 100)) : 0
+                            const remaining = Math.max(0, target - committed)
 
                           return (
                             <div className="space-y-1.5">
