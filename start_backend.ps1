@@ -20,8 +20,8 @@ Write-Host "[setup] Installing backend dependencies..." -ForegroundColor Cyan
 python -m pip install fastapi uvicorn sqlalchemy pydantic python-multipart python-dotenv pyjwt
 
 # Seed the database
-Write-Host "[seed] Seeding database with 150 clusters..." -ForegroundColor Cyan
-python seed.py
+Write-Host "[seed] Seeding database with Jharkhand Societal Innovation Clusters..." -ForegroundColor Cyan
+python seed_all.py
 
 # Start the server
 Write-Host "[server] Starting FastAPI on http://localhost:8000" -ForegroundColor Green
