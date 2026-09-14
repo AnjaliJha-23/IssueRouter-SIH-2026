@@ -3,7 +3,6 @@ import {
     Building2,
     ShieldCheck,
     ArrowRight,
-    Sparkles,
     GraduationCap,
     Clock,
     CheckCircle2,
@@ -168,10 +167,6 @@ export default function ChallengeCard({ challenge, rank, onToggle, onVerify }) {
                             </span>
                         </span>
                     )}
-                </div>
-                <div className="flex items-center gap-1 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
-                    <Sparkles size={11} className="text-indigo-500" />
-                    <span>AI Conf. {Math.round((challenge.ai_confidence || 0.92) * 100)}%</span>
                 </div>
             </div>
 
