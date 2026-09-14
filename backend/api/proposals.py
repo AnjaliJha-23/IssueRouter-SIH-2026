@@ -2,6 +2,7 @@
 api/proposals.py — University Proposed Solutions for Civic Challenges (SIH 2026 Industry Portal).
 """
 import uuid
+import re
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -522,7 +523,9 @@ def _proposal_from_db(p: Proposal) -> Dict[str, Any]:
     loc = (c.location if c else None) or "Jharkhand"
     summary_text = p.proposed_solution or p.problem_understanding or "Comprehensive university solution engineered for regional civic infrastructure."
 
-    b_num = p.budget_num or 500000
+    digits = re.sub(r'[^\d]', '', str(p.budget_required or ''))
+    parsed_req = int(digits) if digits else 0
+    b_num = (p.budget_num if p.budget_num else None) or parsed_req or 850000
     hw_cost = int(b_num * 0.45)
     field_cost = int(b_num * 0.35)
     cloud_cost = max(0, b_num - hw_cost - field_cost)
@@ -703,12 +706,13 @@ def fund_proposal(proposal_id: str, req: FundRequest, db: Session = Depends(get_
         
     current_funds = current.get("funds_committed", 0) + req.amount
     
-    # Check DB proposal or challenge template to determine target budget
     db_prop = db.query(Proposal).filter(Proposal.id == proposal_id).first()
     target_budget = 850000
     
     if db_prop:
-        target_budget = db_prop.budget_num or 850000
+        digits = re.sub(r'[^\d]', '', str(db_prop.budget_required or ''))
+        parsed_req = int(digits) if digits else 0
+        target_budget = (db_prop.budget_num if db_prop.budget_num else None) or parsed_req or 850000
     else:
         ch_id = proposal_id.replace("PROP-", "")
         ch = db.query(Challenge).filter(Challenge.id == ch_id).first()

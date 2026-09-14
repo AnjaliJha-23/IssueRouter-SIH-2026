@@ -795,22 +795,28 @@ function CollaborateModal({ proposal, onClose, onSubmit }) {
    MODAL 2: Fund The Solution Modal
 ───────────────────────────────────────────────────────────────────────────── */
 function FundSolutionModal({ proposal, onClose, onSubmit }) {
-  const reqBudget = proposal.budget_num || (
-    proposal.budget_required
-      ? Number(String(proposal.budget_required).replace(/[^0-9]/g, '')) || 850000
-      : 850000
-  )
+  const reqBudget = useMemo(() => {
+    if (!proposal) return 850000
+    const rawBudget = proposal.budget_required || proposal.budget || proposal.budget_num || ''
+    const cleanedDigits = String(rawBudget).replace(/[^0-9]/g, '')
+    return cleanedDigits ? parseInt(cleanedDigits, 10) : (Number(proposal.budget_num) || 850000)
+  }, [proposal])
+
   const [customBudget, setCustomBudget] = useState(reqBudget)
   const [bucket, setBucket] = useState('Healthcare CSR 2026')
   const [note, setNote] = useState('')
 
-  // Fixed based on the original proposal's required budget
-  const TIERS = [
+  useEffect(() => {
+    setCustomBudget(reqBudget)
+  }, [proposal, reqBudget])
+
+  // Fixed based on the cleaned numeric budget of the proposal
+  const TIERS = useMemo(() => [
     { pct: 25, label: '25% (Phase 1)', val: Math.round(reqBudget * 0.25) },
     { pct: 50, label: '50% (Pilot)', val: Math.round(reqBudget * 0.50) },
     { pct: 75, label: '75% (Full Setup)', val: Math.round(reqBudget * 0.75) },
     { pct: 100, label: '100% (Full Budget)', val: reqBudget },
-  ]
+  ], [reqBudget])
 
   const BUCKETS = [
     'Healthcare CSR 2026',

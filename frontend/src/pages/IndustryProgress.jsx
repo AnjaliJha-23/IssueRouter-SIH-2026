@@ -106,7 +106,12 @@ export default function IndustryProgress() {
   }, [projects])
 
   const fullyFundedCount = useMemo(() => {
-    return projects.filter(p => p.funding_status === 'Funded' || p.funds_committed >= (p.budget_num || 850000)).length
+    return projects.filter(p => {
+      const rawTarget = p.budget_required || p.required_budget || p.budget_num || p.budget || ''
+      const cleaned = String(rawTarget).replace(/[^0-9]/g, '')
+      const target = cleaned ? parseInt(cleaned, 10) : (Number(p.budget_num) || 850000)
+      return p.funding_status === 'Funded' || (p.funds_committed || 0) >= target
+    }).length
   }, [projects])
 
   const totalBeneficiaries = useMemo(() => {
@@ -260,9 +265,11 @@ export default function IndustryProgress() {
       ) : (
         <div className="space-y-4">
           {filteredProjects.map((p) => {
-            const target = p.budget_num || 850000
+            const rawTarget = p.budget_required || p.required_budget || p.budget_num || p.budget || ''
+            const cleaned = String(rawTarget).replace(/[^0-9]/g, '')
+            const target = cleaned ? parseInt(cleaned, 10) : (Number(p.budget_num) || 850000)
             const committed = p.funds_committed || 0
-            const pct = Math.min(100, Math.round((committed / target) * 100))
+            const pct = target > 0 ? Math.min(100, Math.round((committed / target) * 100)) : 0
             const remaining = Math.max(0, target - committed)
             const isExpanded = expandedId === p.id
 

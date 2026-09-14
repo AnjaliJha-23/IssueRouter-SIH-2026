@@ -13,8 +13,11 @@ import seed_universities
 if __name__ == "__main__":
     db_path = Path(__file__).parent / "issueRouter.db"
     if db_path.exists():
-        print(f"Deleting existing database: {db_path}")
-        db_path.unlink()
+        try:
+            print(f"Deleting existing database: {db_path}")
+            db_path.unlink()
+        except PermissionError:
+            print(f"Database file is locked by active server process; proceeding with transaction-level table wipe.")
         
     print("===========================================")
     print("        RUNNING ALL SEED SCRIPTS           ")
