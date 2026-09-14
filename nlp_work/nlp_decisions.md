@@ -33,7 +33,7 @@ This file documents all architectural decisions, design contracts, threshold tun
 - **Motivation:** Environment flexibility and zero downtime during network or API rate limits.
 - **Change:** 
   - `classification.py`: Made classification model configurable via `CLASSIFICATION_MODEL` (defaults to `facebook/bart-large-mnli`).
-  - `summarization.py`: Added `GROQ_MODEL` environment variable support (defaulting to `llama-3.3-70b-versatile`), with robust extractive fallback if external LLM APIs return 404/rate limit or if `GROQ_API_KEY` is not present.
+  - `summarization.py`: Added `GROQ_MODEL` environment variable support (defaulting to `groq/compound-mini`), with robust extractive fallback if external LLM APIs return 404/rate limit or if `GROQ_API_KEY` is not present.
 - **Impact:** Ensures the pipeline always succeeds deterministically without crashing on third-party service outages.
 
 ---
@@ -47,7 +47,7 @@ This file documents all architectural decisions, design contracts, threshold tun
 | `embeddings.py` | 384-dimensional dense semantic vectors | `sentence-transformers/all-MiniLM-L6-v2` | `[Domain] Cleaned_Text` |
 | `deduplication.py` | Filter by `(domain, district)` + Cosine similarity clustering | `scikit-learn` Cosine Similarity | `auto_link` (≥0.80), `flag_related` (0.60–0.79), `new_challenge` (<0.60) |
 | `priority_scoring.py` | Explainable 0–100 priority calculation | Weighted Severity (30%), Volume (25%), Conf (25%), Trend (20%) | `DOMAIN_SEVERITY`, `TREND_MULTIPLIERS` |
-| `summarization.py` | Canonical title & problem statement generation | Groq Llama LLM with Extractive Fallback | `{"title": str, "description": str}` |
+| `summarization.py` | Canonical title & problem statement generation | Groq Compound-Mini LLM with Extractive Fallback | `{"title": str, "description": str}` |
 | `router.py` | Department routing with municipality overrides | Rule-based mapping with city overrides | `CATEGORY_TO_DEPARTMENT`, `CITY_OVERRIDES` |
 | `orchestrator.py` | End-to-end multi-stage pipeline executor | SQLAlchemy DB persistence to `Challenge`, `ChallengeEvidence`, `ChallengeAnalysis`, `ChallengeRelation` | `process_evidence(data, db)` |
 
