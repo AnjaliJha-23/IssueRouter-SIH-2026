@@ -1,14 +1,38 @@
 """
-api/challenges.py — CRUD routes for Challenges (SIH 2026).
+api/challenges.py — CRUD & NLP Pipeline integration routes for Challenges (SIH 2026).
 """
 import uuid
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from db.database import get_db
-from db.models import Challenge, User, Organization, RoutingBatch, RoutingInvitation, Project
-from db.schemas import ChallengeOut, ChallengeCreate, ChallengeVerify, ChallengeRouteRequest, RoutingBatchOut, AssignmentOut
+from db.models import (
+    Challenge,
+    ChallengeEvidence,
+    ChallengeAnalysis,
+    ChallengeRelation,
+    User,
+    Organization,
+    RoutingBatch,
+    RoutingInvitation,
+    Project
+)
+from db.schemas import (
+    ChallengeOut,
+    ChallengeCreate,
+    ChallengeVerify,
+    ChallengeRouteRequest,
+    RoutingBatchOut,
+    AssignmentOut,
+    ChallengeEvidenceOut,
+    ChallengeAnalysisOut,
+    ChallengeRelationOut,
+    EvidenceIngestRequest,
+    PipelineProcessResponse
+)
+from pipeline.orchestrator import process_evidence, analyze_challenge
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
 
@@ -28,7 +52,6 @@ def list_challenges(
     if domain:
         q = q.filter(Challenge.domain == domain)
     if district:
-        # Assuming location contains the district string e.g. "Ranchi"
         q = q.filter(Challenge.location.ilike(f"%{district}%"))
     if priority:
         if priority == "critical":
@@ -53,7 +76,6 @@ def list_challenges(
     # Populate active_deadline for routed challenges
     for c in challenges:
         if c.status == "routed":
-            # Find the most recent active batch
             from sqlalchemy import desc
             batch = db.query(RoutingBatch).filter(
                 RoutingBatch.challenge_id == c.id,
@@ -67,44 +89,94 @@ def list_challenges(
 
 @router.post("/", response_model=ChallengeOut)
 def create_challenge(req: ChallengeCreate, db: Session = Depends(get_db)):
-    # --- MOCK ML PIPELINE ---
-    # In the future, this is where we call HuggingFace NLP for domain/priority
-    desc_lower = req.description.lower()
+    """
+    Creates/links a challenge by running input data through the full NLP Pipeline
+    (Cleaning, Zero-Shot Classification, Location Extraction, Embeddings, Deduplication, Canonical Summarization, and Priority Scoring).
+    """
+    evidence_payload = {
+        "source": req.source or "citizen",
+        "title": req.title,
+        "raw_text": req.description,
+        "location": req.location,
+        "submitted_lat": req.lat,
+        "submitted_lng": req.lng
+    }
     
-    assigned_domain = "General"
-    assigned_priority = 50
+    # Execute NLP pipeline orchestrator
+    pipeline_res = process_evidence(evidence_payload, db)
+    challenge_id = pipeline_res.get("challenge_id")
     
-    if "health" in desc_lower or "doctor" in desc_lower or "disease" in desc_lower or "hospital" in desc_lower:
-        assigned_domain = "HealthTech"
-        assigned_priority = 85
-    elif "school" in desc_lower or "education" in desc_lower:
-        assigned_domain = "EdTech"
-        assigned_priority = 70
-    elif "water" in desc_lower or "drain" in desc_lower:
-        assigned_domain = "Water Management"
-        assigned_priority = 80
+    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=500, detail="Failed to retrieve processed challenge from NLP pipeline")
+        
+    return challenge
 
-    new_challenge = Challenge(
-        id=str(uuid.uuid4()),
-        title=req.title,
-        official_description=req.description,
-        location=req.location,
-        lat=req.lat,
-        lng=req.lng,
-        domain=assigned_domain,
-        priority_score=assigned_priority,
-        status="pending_verification",
-        source_counts={"social": 1, "citizen": 1},
-        ai_confidence=0.92,
-        duplicate_risk=0.05,
-        verified=False,
-        # created_by would be set via current_user in real auth
-    )
+
+@router.post("/ingest", response_model=PipelineProcessResponse)
+def ingest_signal(req: EvidenceIngestRequest, db: Session = Depends(get_db)):
+    """
+    Ingest a raw civic distress alert (Twitter post, citizen report, field log)
+    into the NLP pipeline and return real-time categorization, deduplication action, and priority score.
+    """
+    evidence_payload = {
+        "source": req.source,
+        "raw_text": req.raw_text,
+        "submitted_lat": req.submitted_lat,
+        "submitted_lng": req.submitted_lng
+    }
     
-    db.add(new_challenge)
-    db.commit()
-    db.refresh(new_challenge)
-    return new_challenge
+    res = process_evidence(evidence_payload, db)
+    return res
+
+
+@router.post("/{challenge_id}/analyze")
+def run_ai_analysis(challenge_id: str, db: Session = Depends(get_db)):
+    """
+    On-demand trigger to re-run the NLP pipeline analysis for a given challenge.
+    """
+    res = analyze_challenge(challenge_id, db)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=404, detail=res.get("message"))
+    return res
+
+
+@router.get("/{challenge_id}/analysis", response_model=ChallengeAnalysisOut)
+def get_challenge_analysis(challenge_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve full explainable AI rationale and scoring factors for a challenge.
+    """
+    analysis = db.query(ChallengeAnalysis).filter(ChallengeAnalysis.challenge_id == challenge_id).first()
+    if not analysis:
+        # Run on-demand analysis if none exists yet
+        analyze_challenge(challenge_id, db)
+        analysis = db.query(ChallengeAnalysis).filter(ChallengeAnalysis.challenge_id == challenge_id).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis record not found")
+    return analysis
+
+
+@router.get("/{challenge_id}/evidence", response_model=List[ChallengeEvidenceOut])
+def list_challenge_evidence(challenge_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve all linked civic and social evidence records for a challenge.
+    """
+    evidences = db.query(ChallengeEvidence).filter(
+        ChallengeEvidence.challenge_id == challenge_id
+    ).order_by(ChallengeEvidence.created_at.desc()).all()
+    return evidences
+
+
+@router.get("/{challenge_id}/relations", response_model=List[ChallengeRelationOut])
+def list_challenge_relations(challenge_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve candidate duplicate or related challenge relations flagged by semantic deduplication.
+    """
+    relations = db.query(ChallengeRelation).filter(
+        (ChallengeRelation.source_challenge_id == challenge_id) |
+        (ChallengeRelation.target_challenge_id == challenge_id)
+    ).all()
+    return relations
 
 
 @router.get("/assignments", response_model=List[AssignmentOut])
@@ -126,7 +198,6 @@ def list_assignments(
         if not batch or not batch.challenge:
             continue
         
-        # Total universities assigned in this routing batch
         total_unis = len(batch.invitations) if batch.invitations else 1
 
         results.append(AssignmentOut(
@@ -142,6 +213,7 @@ def list_assignments(
             challenge=batch.challenge
         ))
     return results
+
 
 @router.get("/{challenge_id}", response_model=ChallengeOut)
 def get_challenge(challenge_id: str, db: Session = Depends(get_db)):
@@ -159,7 +231,6 @@ def verify_challenge(challenge_id: str, req: ChallengeVerify, db: Session = Depe
     
     challenge.verified = req.verified
     if req.verified and challenge.status == "pending_verification":
-        from datetime import datetime
         challenge.status = "verified"
         challenge.verified_at = datetime.utcnow()
         challenge.verified_by = "user-gov-1" # Mock current user ID
@@ -167,6 +238,7 @@ def verify_challenge(challenge_id: str, req: ChallengeVerify, db: Session = Depe
     db.commit()
     db.refresh(challenge)
     return challenge
+
 
 @router.post("/{challenge_id}/route", response_model=RoutingBatchOut)
 def route_challenge(challenge_id: str, req: ChallengeRouteRequest, db: Session = Depends(get_db)):
@@ -211,10 +283,10 @@ def route_challenge(challenge_id: str, req: ChallengeRouteRequest, db: Session =
     db.refresh(new_batch)
     return new_batch
 
+
 @router.post("/invitations/{invitation_id}/accept")
 def accept_invitation(invitation_id: str, db: Session = Depends(get_db)):
     import json
-    from datetime import datetime
     
     invitation = db.query(RoutingInvitation).filter(RoutingInvitation.id == invitation_id).first()
     if not invitation:
@@ -228,13 +300,11 @@ def accept_invitation(invitation_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="The routing batch is no longer active.")
         
     if batch.deadline < datetime.utcnow():
-        # Clean up state since it's expired
         batch.status = "expired"
         invitation.status = "expired"
         db.commit()
         raise HTTPException(status_code=400, detail="The routing deadline has expired.")
         
-    # Atomic first-accept-wins logic
     now = datetime.utcnow()
     
     # 1. Accept this invitation
@@ -275,7 +345,6 @@ def accept_invitation(invitation_id: str, db: Session = Depends(get_db)):
         )
         db.add(project)
     else:
-        # Associate org_id if not present
         if not project.org_id:
             project.org_id = invitation.org_id
         if project.status == "prototype":
@@ -290,9 +359,9 @@ def accept_invitation(invitation_id: str, db: Session = Depends(get_db)):
         "status": "accepted"
     }
 
+
 @router.post("/invitations/{invitation_id}/decline")
 def decline_invitation(invitation_id: str, db: Session = Depends(get_db)):
-    from datetime import datetime
     invitation = db.query(RoutingInvitation).filter(RoutingInvitation.id == invitation_id).first()
     if not invitation:
         raise HTTPException(status_code=404, detail="Invitation not found")

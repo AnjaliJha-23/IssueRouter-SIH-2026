@@ -132,26 +132,73 @@ class MatchOut(BaseModel):
 class MatchAccept(BaseModel):
     status: str # 'accepted' or 'rejected'
 
+# ── NLP Pipeline & Evidence Schemas ─────────────────────────────────────────
+class ChallengeEvidenceOut(BaseModel):
+    id: str
+    challenge_id: Optional[str] = None
+    source: str
+    raw_text: str
+    clean_text: str
+    submitted_lat: Optional[float] = None
+    submitted_lng: Optional[float] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ChallengeAnalysisOut(BaseModel):
+    id: str
+    challenge_id: str
+    domain: Optional[str] = None
+    subdomain: Optional[str] = None
+    domain_scores: Optional[Any] = None
+    priority_score: Optional[int] = None
+    priority_factors: Optional[Any] = None
+    evidence_confidence: Optional[float] = None
+    trend: Optional[str] = None
+    explanation: Optional[str] = None
+    model_versions: Optional[Any] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+        protected_namespaces = ()
+
+class ChallengeRelationOut(BaseModel):
+    id: str
+    source_challenge_id: str
+    target_challenge_id: str
+    similarity_score: float
+    status: str = "pending"
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 # ── Challenge ──────────────────────────────────────────────────────────────
 class ChallengeBase(BaseModel):
     id: str
     title: str
     description: str
-    domain: Optional[str]
+    official_description: Optional[str] = None
+    ai_generated_summary: Optional[str] = None
+    domain: Optional[str] = None
+    district: Optional[str] = None
+    block: Optional[str] = None
     status: str
-    priority_score: Optional[int]
+    priority_score: Optional[int] = None
     location: str
-    lat: Optional[float]
-    lng: Optional[float]
-    department: Optional[str]
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    department: Optional[str] = None
     complaint_count: int = 1
     source_counts: Optional[Any] = None
     ai_confidence: Optional[float] = None
     duplicate_risk: Optional[float] = None
     rt_reach: int = 0
     trend: str = "stable"
-    created_by: Optional[str]
-    verified: bool
+    created_by: Optional[str] = None
+    verified: bool = False
     verified_by: Optional[str] = None
     verified_at: Optional[datetime] = None
     created_at: datetime
@@ -164,16 +211,40 @@ class ChallengeOut(ChallengeBase):
     matches: List[MatchOut] = []
     project: Optional[ProjectOut] = None
     active_deadline: Optional[datetime] = None
+    analysis: Optional[ChallengeAnalysisOut] = None
+    evidence: List[ChallengeEvidenceOut] = []
 
     class Config:
         from_attributes = True
 
 class ChallengeCreate(BaseModel):
-    title: str
+    title: Optional[str] = None
     description: str
-    location: str
+    location: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    source: Optional[str] = "citizen"
+
+class EvidenceIngestRequest(BaseModel):
+    source: str = "citizen"  # "citizen" | "twitter" | "field_agent"
+    raw_text: str
+    submitted_lat: Optional[float] = None
+    submitted_lng: Optional[float] = None
+
+class PipelineProcessResponse(BaseModel):
+    status: str
+    action: str  # "link" | "flag_related" | "new_challenge"
+    challenge_id: str
+    priority_score: Optional[int] = None
+    domain: Optional[str] = None
+    district: Optional[str] = None
+    block: Optional[str] = None
+    summary_title: Optional[str] = None
+    summary_description: Optional[str] = None
+    confidence: Optional[float] = None
+    similarity_score: Optional[float] = None
+    candidate_relations: List[Any] = []
+    analysis: Optional[ChallengeAnalysisOut] = None
 
 class ChallengeVerify(BaseModel):
     verified: bool
@@ -245,3 +316,4 @@ class LocationPointOut(BaseModel):
 
 class LocationsOut(BaseModel):
     locations: List[LocationPointOut]
+
