@@ -1,7 +1,14 @@
 """
 main.py — IssueRouter FastAPI application (SIH 2026).
 """
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from backend and root
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles

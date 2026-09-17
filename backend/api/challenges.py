@@ -1,5 +1,5 @@
 """
-api/challenges.py — CRUD routes for Challenges & Evidence (SIH 2026).
+api/challenges.py — CRUD & NLP Pipeline integration routes for Challenges & Evidence (SIH 2026).
 """
 import uuid
 import json
@@ -11,9 +11,33 @@ from sqlalchemy import desc
 from typing import List, Optional
 
 from db.database import get_db
-from db.models import Challenge, User, Organization, RoutingBatch, RoutingInvitation, Project, ChallengeEvidence
-from db.schemas import ChallengeOut, ChallengeCreate, ChallengeVerify, ChallengeRouteRequest, ChallengeResolveRequest, RoutingBatchOut, AssignmentOut
+from db.models import (
+    Challenge,
+    ChallengeEvidence,
+    ChallengeAnalysis,
+    ChallengeRelation,
+    User,
+    Organization,
+    RoutingBatch,
+    RoutingInvitation,
+    Project
+)
+from db.schemas import (
+    ChallengeOut,
+    ChallengeCreate,
+    ChallengeVerify,
+    ChallengeRouteRequest,
+    ChallengeResolveRequest,
+    RoutingBatchOut,
+    AssignmentOut,
+    ChallengeEvidenceOut,
+    ChallengeAnalysisOut,
+    ChallengeRelationOut,
+    EvidenceIngestRequest,
+    PipelineProcessResponse
+)
 from api.auth import get_current_user, get_optional_current_user, require_roles
+from pipeline.orchestrator import process_evidence, analyze_challenge
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
 
@@ -139,84 +163,106 @@ async def upload_challenge_photos(
 @router.post("/", response_model=ChallengeOut)
 def create_challenge(
     req: ChallengeCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Creates a new canonical challenge, tags ownership to authenticated user,
-    creates linked ChallengeEvidence, and runs initial domain categorization.
+    Creates/links a challenge by running input data through the full NLP Pipeline
+    (Cleaning, Zero-Shot Classification, Location Extraction, Embeddings, Deduplication, Canonical Summarization, and Priority Scoring).
     """
-    if not req.title or len(req.title.strip()) < 5:
-        raise HTTPException(status_code=400, detail="Challenge title must be at least 5 characters.")
-    if not req.description or len(req.description.strip()) < 15:
-        raise HTTPException(status_code=400, detail="Please provide a meaningful description of the issue (at least 15 characters).")
-    if not req.location or len(req.location.strip()) < 2:
-        raise HTTPException(status_code=400, detail="Location is required.")
+    if not req.description or len(req.description.strip()) < 5:
+        raise HTTPException(status_code=400, detail="Please provide a description of the issue.")
 
-    # Domain categorization heuristic
-    desc_lower = (req.title + " " + req.description).lower()
-    assigned_domain = "Civic Infrastructure"
-    assigned_priority = 65
+    evidence_payload = {
+        "source": req.source or "citizen",
+        "title": req.title,
+        "raw_text": req.description,
+        "location": req.location,
+        "submitted_lat": req.lat,
+        "submitted_lng": req.lng
+    }
     
-    if any(k in desc_lower for k in ["health", "doctor", "disease", "hospital", "medicine", "clinic", "phc", "ambulance", "patient", "medical"]):
-        assigned_domain = "HealthTech"
-        assigned_priority = 85
-    elif any(k in desc_lower for k in ["school", "education", "student", "teacher", "classroom", "college", "dropout", "literacy"]):
-        assigned_domain = "EdTech"
-        assigned_priority = 70
-    elif any(k in desc_lower for k in ["water", "drain", "sewage", "drinking", "pipeline", "handpump", "contamination", "arsenic", "fluoride"]):
-        assigned_domain = "Water Management"
-        assigned_priority = 80
-    elif any(k in desc_lower for k in ["farmer", "crop", "agriculture", "fertilizer", "soil", "irrigation", "paddy"]):
-        assigned_domain = "AgriTech"
-        assigned_priority = 75
-    elif any(k in desc_lower for k in ["electricity", "power", "blackout", "solar", "transformer", "grid"]):
-        assigned_domain = "Clean Energy"
-        assigned_priority = 75
-    elif any(k in desc_lower for k in ["road", "pothole", "bridge", "traffic", "street light", "transport"]):
-        assigned_domain = "Urban Infrastructure"
-        assigned_priority = 70
+    # Execute NLP pipeline orchestrator
+    pipeline_res = process_evidence(evidence_payload, db)
+    challenge_id = pipeline_res.get("challenge_id")
+    
+    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=500, detail="Failed to retrieve processed challenge from NLP pipeline")
+    
+    # Attach user ownership and media URLs if available
+    if current_user and not challenge.created_by:
+        challenge.created_by = current_user.id
+    if req.media_urls:
+        existing_urls = challenge.media_urls or []
+        for url in req.media_urls:
+            if url not in existing_urls:
+                existing_urls.append(url)
+        challenge.media_urls = existing_urls
+        db.commit()
+        db.refresh(challenge)
+        
+    return challenge
 
-    challenge_id = f"CHL-2026-{uuid.uuid4().hex[:6].upper()}"
+@router.post("/ingest", response_model=PipelineProcessResponse)
+def ingest_signal(req: EvidenceIngestRequest, db: Session = Depends(get_db)):
+    """
+    Ingest a raw civic distress alert (Twitter post, citizen report, field log)
+    into the NLP pipeline and return real-time categorization, deduplication action, and priority score.
+    """
+    evidence_payload = {
+        "source": req.source,
+        "raw_text": req.raw_text,
+        "submitted_lat": req.submitted_lat,
+        "submitted_lng": req.submitted_lng
+    }
+    
+    res = process_evidence(evidence_payload, db)
+    return res
 
-    new_challenge = Challenge(
-        id=challenge_id,
-        title=req.title.strip(),
-        official_description=req.description.strip(),
-        location=req.location.strip(),
-        district=req.district,
-        block=req.block,
-        lat=req.lat or 23.3441,
-        lng=req.lng or 85.3096,
-        domain=assigned_domain,
-        priority_score=assigned_priority,
-        status="pending_verification",
-        source_counts={"social": 0, "citizen": 1},
-        ai_confidence=0.94,
-        duplicate_risk=0.03,
-        verified=False,
-        media_urls=req.media_urls or [],
-        created_by=current_user.id
-    )
-    db.add(new_challenge)
+@router.post("/{challenge_id}/analyze")
+def run_ai_analysis(challenge_id: str, db: Session = Depends(get_db)):
+    """
+    On-demand trigger to re-run the NLP pipeline analysis for a given challenge.
+    """
+    res = analyze_challenge(challenge_id, db)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=404, detail=res.get("message"))
+    return res
 
-    # Persist as canonical ChallengeEvidence
-    evidence_id = f"ev-{uuid.uuid4().hex[:8]}"
-    evidence = ChallengeEvidence(
-        id=evidence_id,
-        challenge_id=new_challenge.id,
-        source="citizen",
-        raw_text=f"{req.title}: {req.description}",
-        clean_text=f"{req.title}. {req.description}",
-        media_urls=req.media_urls or [],
-        submitted_lat=req.lat,
-        submitted_lng=req.lng
-    )
-    db.add(evidence)
+@router.get("/{challenge_id}/analysis", response_model=ChallengeAnalysisOut)
+def get_challenge_analysis(challenge_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve full explainable AI rationale and scoring factors for a challenge.
+    """
+    analysis = db.query(ChallengeAnalysis).filter(ChallengeAnalysis.challenge_id == challenge_id).first()
+    if not analysis:
+        analyze_challenge(challenge_id, db)
+        analysis = db.query(ChallengeAnalysis).filter(ChallengeAnalysis.challenge_id == challenge_id).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis record not found")
+    return analysis
 
-    db.commit()
-    db.refresh(new_challenge)
-    return new_challenge
+@router.get("/{challenge_id}/evidence", response_model=List[ChallengeEvidenceOut])
+def list_challenge_evidence(challenge_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve all linked civic and social evidence records for a challenge.
+    """
+    evidences = db.query(ChallengeEvidence).filter(
+        ChallengeEvidence.challenge_id == challenge_id
+    ).order_by(ChallengeEvidence.created_at.desc()).all()
+    return evidences
+
+@router.get("/{challenge_id}/relations", response_model=List[ChallengeRelationOut])
+def list_challenge_relations(challenge_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve candidate duplicate or related challenge relations flagged by semantic deduplication.
+    """
+    relations = db.query(ChallengeRelation).filter(
+        (ChallengeRelation.source_challenge_id == challenge_id) |
+        (ChallengeRelation.target_challenge_id == challenge_id)
+    ).all()
+    return relations
 
 @router.get("/assignments", response_model=List[AssignmentOut])
 def list_assignments(
@@ -226,7 +272,6 @@ def list_assignments(
     db: Session = Depends(get_db)
 ):
     q = db.query(RoutingInvitation)
-    # If university user, enforce seeing only own organization invitations
     if current_user.role == "University":
         q = q.filter(RoutingInvitation.org_id == current_user.org_id)
     elif org_id:
@@ -268,11 +313,9 @@ def get_challenge(
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
     
-    # Ownership privacy check:
-    # If challenge is still pending verification and not verified, only creator or Gov can view
     if not challenge.verified and challenge.status == "pending_verification":
         if current_user and (current_user.role == "Gov" or current_user.id == challenge.created_by):
-            pass # allowed
+            pass
         else:
             raise HTTPException(status_code=404, detail="Challenge not found or pending verification.")
             
@@ -464,7 +507,6 @@ def resolve_challenge(
     challenge.status = "resolved"
     challenge.verified = True
 
-    # Also synchronize the linked project if present
     project = db.query(Project).filter(Project.challenge_id == challenge.id).first()
     if project:
         project.status = "deployed"
@@ -479,4 +521,3 @@ def resolve_challenge(
     db.commit()
     db.refresh(challenge)
     return challenge
-

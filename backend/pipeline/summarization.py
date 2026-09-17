@@ -1,18 +1,26 @@
 import os
 import json
-from groq import Groq
+from dotenv import load_dotenv
+
+# Search and load .env from backend directory and workspace root
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
 _client = None
 
 def get_client():
     global _client
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return None
     if _client is None:
         try:
-            # Assumes GROQ_API_KEY is in env
-            _client = Groq()
+            from groq import Groq
+            _client = Groq(api_key=api_key)
         except Exception as e:
-            print(f"[summarization] Groq client init failed: {e}")
-    return _client
+            print(f"[summarization] Groq client init notice: {e}. Using extractive fallback.")
+            _client = False
+    return _client if _client is not False else None
 
 def generate_summary(
     existing_summary: dict | None,
@@ -24,8 +32,7 @@ def generate_summary(
     Generates a canonical title and description for a Master Challenge.
     Returns: {"title": "...", "description": "..."}
     """
-    client = get_client()
-    
+    global _groq_enabled
     # Deterministic Extractive Fallback
     fallback_desc = (new_evidence_text[:147] + "...") if len(new_evidence_text) > 150 else new_evidence_text
     fallback_title = f"{domain} Issue in {location}" if location else f"{domain} Issue"
@@ -35,6 +42,7 @@ def generate_summary(
         "description": fallback_desc
     }
     
+    client = get_client()
     if client is None:
         return fallback_result
         
@@ -52,15 +60,20 @@ Location: {location}
 New Evidence: {new_evidence_text}
 """
 
+    model_name = os.getenv("GROQ_MODEL", "groq/compound-mini")
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model=model_name,
             max_tokens=150,
-            response_format={"type": "json_object"},
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1
         )
         content = response.choices[0].message.content.strip()
+        # Clean potential markdown wrapping e.g. ```json ... ```
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:].strip()
         result = json.loads(content)
         
         if "title" not in result or "description" not in result:
@@ -71,5 +84,6 @@ New Evidence: {new_evidence_text}
             "description": str(result["description"])
         }
     except Exception as e:
-        print(f"[summarization] API/JSON error: {e}. Using fallback.")
+        print(f"[summarization] Groq call notice: {e}. Switching to extractive fallback.")
+        _groq_enabled = False
         return fallback_result

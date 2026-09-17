@@ -28,6 +28,7 @@ from db.models import (
     Proposal,
 )
 
+
 random.seed(42)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -803,9 +804,10 @@ def seed():
         db.commit()
         print(f"[seed_mock_data] Seeded {len(challenges)} master challenges across Jharkhand.")
 
-        # ── 4. SEED EVIDENCE RECORDS ───────────────────────────────────────
-        print("[seed_mock_data] Seeding citizen & field evidence records...")
+        # ── 4. SEED EVIDENCE RECORDS & AI ANALYSES ─────────────────────────
+        print("[seed_mock_data] Seeding citizen & field evidence records and AI analyses...")
         evidence_records = []
+        analyses = []
         for ch in challenges:
             # 1. Citizen report evidence
             ev_id1 = f"ev-{ch.id.lower()}-1"
@@ -836,7 +838,39 @@ def seed():
                     created_at=ch.created_at + timedelta(hours=2)
                 ))
 
+            # 3. AI Analysis record
+            domain_scores = {
+                ch.domain: round(random.uniform(0.78, 0.96), 2),
+                "Public Administration": round(random.uniform(0.04, 0.12), 2),
+                "Infrastructure/Transport": round(random.uniform(0.02, 0.09), 2),
+            }
+            p_score = ch.priority_score if ch.priority_score is not None else 70
+            analyses.append(ChallengeAnalysis(
+                id=f"CA-{uuid.uuid4().hex[:8].upper()}",
+                challenge_id=ch.id,
+                domain=ch.domain,
+                subdomain=ch.department,
+                domain_scores=domain_scores,
+                priority_score=p_score,
+                priority_factors={
+                    "severity": round(p_score * 0.30 / 100, 2),
+                    "evidence_volume": round(random.uniform(0.15, 0.25), 2),
+                    "confidence": round(random.uniform(0.18, 0.25), 2),
+                    "trend": round(random.uniform(0.10, 0.20), 2)
+                },
+                evidence_confidence=round(random.uniform(0.80, 0.98), 2),
+                trend=ch.trend or "rising",
+                explanation=f"Zero-shot classification identified {ch.domain} ({ch.department}) with high confidence. Priority computed from {ch.complaint_count} cross-verified civic signals.",
+                model_versions={
+                    "classification": "facebook/bart-large-mnli",
+                    "embeddings": "sentence-transformers/all-MiniLM-L6-v2",
+                    "summarization": "groq/compound-mini"
+                },
+                updated_at=ch.created_at
+            ))
+
         db.bulk_save_objects(evidence_records)
+        db.bulk_save_objects(analyses)
         db.commit()
 
         # ── 5. SEED MATCHES ────────────────────────────────────────────────
