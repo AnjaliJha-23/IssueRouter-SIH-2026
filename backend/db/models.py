@@ -68,6 +68,7 @@ class Challenge(Base):
     created_by = Column(String, ForeignKey("users.id"), nullable=True)
     verified_by = Column(String, ForeignKey("users.id"), nullable=True)
     verified_at = Column(DateTime, nullable=True)
+    media_urls = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     @property
@@ -91,6 +92,7 @@ class ChallengeEvidence(Base):
     raw_text = Column(Text, nullable=False)
     clean_text = Column(Text, nullable=False)
     embedding_json = Column(JSON, nullable=True) # JSON list of floats
+    media_urls = Column(JSON, nullable=True)
     submitted_lat = Column(Float, nullable=True)
     submitted_lng = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { authFetch } from '../api/client'
 import { 
   Building, 
   CheckCircle2, 
@@ -12,7 +13,8 @@ import {
   FileText, 
   Sparkles,
   MapPin,
-  Tag
+  Tag,
+  DollarSign
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -36,9 +38,7 @@ export default function OrgDashboard() {
   const fetchAssignments = async () => {
     setLoadingAssignments(true)
     try {
-      const res = await fetch(`/api/challenges/assignments?org_id=${currentOrgId}`).catch(() => 
-        fetch(`http://localhost:8000/api/challenges/assignments?org_id=${currentOrgId}`)
-      )
+      const res = await authFetch(`/api/challenges/assignments?org_id=${currentOrgId}`)
       if (res && res.ok) {
         const data = await res.json()
         setAssignments(Array.isArray(data) ? data : [])
@@ -53,9 +53,7 @@ export default function OrgDashboard() {
   const fetchActiveProjects = async () => {
     setLoadingProjects(true)
     try {
-      const res = await fetch(`/api/projects/?org_id=${currentOrgId}`).catch(() => 
-        fetch(`http://localhost:8000/api/projects/?org_id=${currentOrgId}`)
-      )
+      const res = await authFetch(`/api/projects/?org_id=${currentOrgId}`)
       if (res && res.ok) {
         const data = await res.json()
         setActiveProjects(Array.isArray(data) ? data : [])
@@ -70,13 +68,9 @@ export default function OrgDashboard() {
   const handleAccept = async (assignmentId) => {
     setProcessingId(assignmentId)
     try {
-      const res = await fetch(`/api/challenges/invitations/${assignmentId}/accept`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }).catch(() => fetch(`http://localhost:8000/api/challenges/invitations/${assignmentId}/accept`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }))
+      const res = await authFetch(`/api/challenges/invitations/${assignmentId}/accept`, {
+        method: 'POST'
+      })
 
       if (res && res.ok) {
         await Promise.all([fetchAssignments(), fetchActiveProjects()])
@@ -91,13 +85,9 @@ export default function OrgDashboard() {
   const handleDecline = async (assignmentId) => {
     setProcessingId(assignmentId)
     try {
-      const res = await fetch(`/api/challenges/invitations/${assignmentId}/decline`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }).catch(() => fetch(`http://localhost:8000/api/challenges/invitations/${assignmentId}/decline`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }))
+      const res = await authFetch(`/api/challenges/invitations/${assignmentId}/decline`, {
+        method: 'POST'
+      })
 
       if (res && res.ok) {
         await fetchAssignments()
@@ -326,13 +316,116 @@ export default function OrgDashboard() {
 
                     {/* Proposal Solution Summary if submitted */}
                     {p.proposal && (
-                      <div className="p-3 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-700/60 rounded-lg">
+                      <div className="p-3 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-700/60 rounded-lg space-y-1">
                         <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
                           {p.proposal.title}
                         </p>
-                        <p className="text-[11px] text-neutral-500 mt-0.5 line-clamp-1">
+                        <p className="text-[11px] text-neutral-500 line-clamp-2">
                           {p.proposal.proposed_solution}
                         </p>
+                      </div>
+                    )}
+
+                    {/* 1. Research & Delivery Progress Bar */}
+                    {(() => {
+                      let pMilestones = []
+                      try {
+                        if (p.milestones_json) {
+                          pMilestones = typeof p.milestones_json === 'string' ? JSON.parse(p.milestones_json) : p.milestones_json
+                        }
+                      } catch (e) {}
+                      const totalMilestones = 4
+                      const completedCount = Array.isArray(pMilestones) && pMilestones.length > 0
+                        ? pMilestones.filter(m => m.status === 'completed').length 
+                        : (hasProposal ? 3 : 1)
+                      const progressPct = Math.round((completedCount / totalMilestones) * 100)
+
+                      return (
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="font-semibold text-neutral-500 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                              Research & Delivery Progress
+                            </span>
+                            <span className="font-bold text-neutral-700 dark:text-neutral-300">
+                              {completedCount}/{totalMilestones} Phases ({progressPct}%)
+                            </span>
+                          </div>
+                          <div className="w-full bg-neutral-100 dark:bg-neutral-700 h-2 rounded-full overflow-hidden">
+                            <div 
+                              className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-300"
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* 2. CSR Funding & Grant Accumulation Tracker (if proposal exists) */}
+                    {p.proposal && (
+                      <div className="p-3.5 bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-white dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-neutral-900 border border-emerald-200/80 dark:border-emerald-800/40 rounded-xl space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5 font-bold text-emerald-900 dark:text-emerald-200">
+                            <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <span>CSR Grant Accumulation</span>
+                          </div>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                            p.proposal.funding_status === 'Funded' || (p.proposal.funds_committed >= (Number(String(p.proposal.budget_required || p.proposal.budget_num || '').replace(/[^0-9]/g, '')) || 850000))
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200'
+                              : (p.proposal.funds_committed > 0 || p.proposal.funding_status === 'Partially Funded')
+                                ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-200'
+                                : 'bg-neutral-100 text-neutral-700 border-neutral-300 dark:bg-neutral-800 dark:text-neutral-300'
+                          }`}>
+                            {p.proposal.funding_status || (p.proposal.funds_committed > 0 ? 'Partially Funded' : 'Open for Funding')}
+                          </span>
+                        </div>
+
+                          {(() => {
+                            const rawTarget = p.proposal.budget_required || p.proposal.budget_num || ''
+                            const cleaned = String(rawTarget).replace(/[^0-9]/g, '')
+                            const target = cleaned ? parseInt(cleaned, 10) : (Number(p.proposal.budget_num) || 850000)
+                            const committed = p.proposal.funds_committed || 0
+                            const pct = target > 0 ? Math.min(100, Math.round((committed / target) * 100)) : 0
+                            const remaining = Math.max(0, target - committed)
+
+                          return (
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between items-baseline text-[11px]">
+                                <span className="font-bold text-emerald-800 dark:text-emerald-300">
+                                  ₹{committed.toLocaleString('en-IN')} <span className="font-normal text-neutral-500">accumulated</span>
+                                </span>
+                                <span className="font-medium text-neutral-500">
+                                  Goal: <span className="font-bold text-neutral-700 dark:text-neutral-200">{p.proposal.budget_required || `₹${target.toLocaleString('en-IN')}`}</span>
+                                </span>
+                              </div>
+
+                              <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-2 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+
+                              <div className="flex justify-between items-center text-[10.5px] text-neutral-500">
+                                <span className="font-bold text-emerald-700 dark:text-emerald-400">{pct}% Funded</span>
+                                <span className={remaining === 0 ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-amber-700 dark:text-amber-400 font-semibold'}>
+                                  {remaining === 0 ? 'Fully Funded 🎉' : `₹${remaining.toLocaleString('en-IN')} Remaining Needed`}
+                                </span>
+                              </div>
+
+                              {p.proposal.partners && p.proposal.partners.length > 0 && (
+                                <div className="pt-1 flex flex-wrap items-center gap-1.5 border-t border-emerald-100 dark:border-emerald-900/30">
+                                  <span className="text-[10px] text-neutral-400 font-medium">CSR Sponsor:</span>
+                                  {p.proposal.partners.map((partner, idx) => (
+                                    <span key={idx} className="text-[10px] font-bold bg-white dark:bg-neutral-800 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-800/40 shadow-xs">
+                                      {partner}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )}
 

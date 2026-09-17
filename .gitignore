@@ -60,3 +60,14 @@ out/
 *.swp
 *.swo
 .agents/
+
+# SQLite Databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# User Uploads & Media
+uploads/
+**/uploads/
+

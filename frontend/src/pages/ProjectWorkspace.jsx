@@ -1,24 +1,25 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { 
-  FolderGit2, 
-  CheckCircle2, 
-  Circle, 
-  ArrowLeft, 
-  Sparkles, 
-  Send, 
-  Save, 
-  Building2, 
-  MapPin, 
-  Tag, 
-  Layers, 
-  ShieldCheck, 
-  AlertCircle, 
-  DollarSign, 
-  Clock, 
-  Award, 
-  Users, 
+import { authFetch } from '../api/client'
+import {
+  FolderGit2,
+  CheckCircle2,
+  Circle,
+  ArrowLeft,
+  Sparkles,
+  Send,
+  Save,
+  Building2,
+  MapPin,
+  Tag,
+  Layers,
+  ShieldCheck,
+  AlertCircle,
+  DollarSign,
+  Clock,
+  Award,
+  Users,
   FileText,
   Check,
   Edit3
@@ -35,7 +36,7 @@ export default function ProjectWorkspace() {
   const { id } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
-  
+
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -72,7 +73,7 @@ export default function ProjectWorkspace() {
   const fetchProject = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/projects/${id}`).catch(() => fetch(`http://localhost:8000/api/projects/${id}`))
+      const res = await authFetch(`/api/projects/${id}`)
       if (res && res.ok) {
         const data = await res.json()
         setProject(data)
@@ -125,11 +126,6 @@ export default function ProjectWorkspace() {
   }
 
   const handleSubmitProposal = async (isDraft = false) => {
-    if (!formData.solution_title.trim() || !formData.proposed_solution.trim()) {
-      showToast('Please provide at least a Solution Title and Solution Description.', 'error')
-      return
-    }
-
     setSubmitting(true)
     try {
       const payload = {
@@ -137,19 +133,14 @@ export default function ProjectWorkspace() {
         is_draft: isDraft
       }
 
-      const res = await fetch(`/api/projects/${id}/proposal`, {
+      const res = await authFetch(`/api/projects/${id}/proposal`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      }).catch(() => fetch(`http://localhost:8000/api/projects/${id}/proposal`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }))
+      })
 
       if (res && res.ok) {
         showToast(
-          isDraft ? 'Proposal saved as draft!' : 'Solution Proposal successfully submitted to Industry Portal!', 
+          isDraft ? 'Proposal saved as draft!' : 'Solution Proposal successfully submitted to Industry Portal!',
           'success'
         )
         await fetchProject()
@@ -189,18 +180,63 @@ export default function ProjectWorkspace() {
   const p = project.proposal
   const isSubmitted = Boolean(p && p.status === 'submitted')
 
-  let milestones = []
+  const PHASE_TITLES = [
+    'Initial Problem Analysis & Architecture',
+    'Research and Prototype Submission',
+    'Solution Submission',
+    'Industry Deployment',
+  ]
+
+  let rawMilestones = []
   try {
     if (project.milestones_json) {
-      milestones = typeof project.milestones_json === 'string' ? JSON.parse(project.milestones_json) : project.milestones_json
+      rawMilestones = typeof project.milestones_json === 'string' ? JSON.parse(project.milestones_json) : project.milestones_json
     }
   } catch (e) {
     console.error('Error parsing milestones', e)
   }
 
+  const milestones = PHASE_TITLES.map((defaultTitle, idx) => {
+    const existing = Array.isArray(rawMilestones) && rawMilestones[idx]
+    if (existing) {
+      return {
+        title: existing.title || defaultTitle,
+        status: existing.status || 'pending',
+      }
+    }
+    return {
+      title: defaultTitle,
+      status: idx === 0 ? 'completed' : idx === 1 ? 'in_progress' : 'pending',
+    }
+  })
+
+  const completedMilestones = milestones.filter(m => m.status === 'completed').length
+  const progressPercent = Math.round((completedMilestones / milestones.length) * 100)
+
+  const handleUpdateMilestoneStatus = async (index, newStatus) => {
+    const updated = milestones.map((m, idx) => 
+      idx === index ? { ...m, status: newStatus } : m
+    )
+    try {
+      const res = await authFetch(`/api/projects/${id}/milestones`, {
+        method: 'PATCH',
+        body: JSON.stringify({ milestones: updated })
+      })
+      if (res && res.ok) {
+        showToast(`Phase ${index + 1} updated to ${newStatus.replace('_', ' ')}!`, 'success')
+        await fetchProject()
+      } else {
+        showToast('Failed to update milestone.', 'error')
+      }
+    } catch (e) {
+      console.error(e)
+      showToast('Network error updating milestone.', 'error')
+    }
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-7 pb-16">
-      
+
       {/* ── Toast Notification ───────────────── */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-5 py-3.5 rounded-xl shadow-2xl border border-neutral-700 animate-fade-in-up">
@@ -212,8 +248,8 @@ export default function ProjectWorkspace() {
       {/* ── Header Breadcrumbs & Status ───────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link 
-            to={user?.role === 'Gov' ? '/dashboard/gov' : user?.role === 'Citizen' ? '/dashboard/citizen' : '/dashboard/org'} 
+          <Link
+            to={user?.role === 'Gov' ? '/dashboard/gov' : user?.role === 'Citizen' ? '/dashboard/citizen' : '/dashboard/org'}
             className="p-2.5 hover:bg-neutral-200 dark:hover:bg-neutral-800 rounded-xl transition-colors text-neutral-600 dark:text-neutral-300"
             title="Back to Dashboard"
           >
@@ -308,7 +344,7 @@ export default function ProjectWorkspace() {
           SECTION 2 — UNIVERSITY SOLUTION PROPOSAL
           ══════════════════════════════════════════════════ */}
       <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm overflow-hidden">
-        
+
         {/* Section Header */}
         <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50/70 dark:bg-neutral-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -335,7 +371,7 @@ export default function ProjectWorkspace() {
         {/* ── CASE A: PROPOSAL SUBMITTED (READ-ONLY VIEW) ── */}
         {isSubmitted && !isEditing ? (
           <div className="p-6 space-y-6">
-            
+
             {/* Live Status Banner */}
             <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-white dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-neutral-800 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -362,24 +398,68 @@ export default function ProjectWorkspace() {
               </div>
             </div>
 
-            {/* Submitted Proposal Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
-                <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Required Budget</span>
-                <p className="text-lg font-extrabold text-neutral-900 dark:text-white mt-0.5">{p.budget_required}</p>
-                <span className="text-[11px] text-neutral-500">CSR Grant Target</span>
-              </div>
-              <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
-                <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Readiness Level</span>
-                <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{p.trl}</p>
-                <span className="text-[11px] text-neutral-500">Deployment Staging</span>
-              </div>
-              <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
-                <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Timeline</span>
-                <p className="text-lg font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{p.timeline || '4 Months'}</p>
-                <span className="text-[11px] text-neutral-500">Pilot Completion</span>
-              </div>
-            </div>
+            {/* Submitted Proposal Summary Cards with CSR Funding Progress */}
+            {(() => {
+              const target = p.budget_num || (p.budget_required ? Number(String(p.budget_required).replace(/[^0-9]/g, '')) || 850000 : 850000)
+              const committed = p.funds_committed || 0
+              const pct = Math.min(100, Math.round((committed / target) * 100))
+              const remaining = Math.max(0, target - committed)
+
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                      <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Required Budget</span>
+                      <p className="text-lg font-extrabold text-neutral-900 dark:text-white mt-0.5">{p.budget_required || `₹${target.toLocaleString('en-IN')}`}</p>
+                      <span className="text-[11px] text-neutral-500">CSR Grant Goal</span>
+                    </div>
+
+                    <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/40">
+                      <div className="flex justify-between items-start">
+                        <span className="text-[10.5px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">Accumulated Funds</span>
+                        <span className="text-[10px] font-extrabold px-2 py-0.2 bg-emerald-600 text-white rounded-full">{pct}%</span>
+                      </div>
+                      <p className="text-lg font-extrabold text-emerald-700 dark:text-emerald-400 mt-0.5">₹{committed.toLocaleString('en-IN')}</p>
+                      <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">
+                        {remaining === 0 ? 'Goal Reached 🎉' : `₹${remaining.toLocaleString('en-IN')} remaining`}
+                      </span>
+                    </div>
+
+                    <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                      <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Readiness Level</span>
+                      <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{p.trl}</p>
+                      <span className="text-[11px] text-neutral-500">Deployment Staging</span>
+                    </div>
+
+                    <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                      <span className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider">Timeline & Sponsors</span>
+                      <p className="text-lg font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{p.timeline || '4 Months'}</p>
+                      <span className="text-[11px] text-neutral-500 truncate block">
+                        {p.partners && p.partners.length > 0 ? p.partners.join(', ') : 'Open for Sponsorship'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Funding Progress Bar */}
+                  <div className="p-3 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl border border-neutral-100 dark:border-neutral-800 space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-neutral-800 dark:text-neutral-200">
+                        CSR Capital Allocation Progress
+                      </span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        ₹{committed.toLocaleString('en-IN')} / ₹{target.toLocaleString('en-IN')} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-2.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Proposal Details Content */}
             <div className="space-y-4 text-xs">
@@ -415,17 +495,14 @@ export default function ProjectWorkspace() {
               </div>
             </div>
 
-            <div className="pt-2 flex justify-between items-center border-t border-neutral-100 dark:border-neutral-700/60 text-xs text-neutral-500">
+            <div className="pt-2 flex items-center border-t border-neutral-100 dark:border-neutral-700/60 text-xs text-neutral-500">
               <span>Submitted: {new Date(p.created_at).toLocaleDateString()}</span>
-              <Link to="/dashboard/industry" className="font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
-                View in Industry Portal →
-              </Link>
             </div>
           </div>
         ) : (
           /* ── CASE B: FORM INPUT (NOT SUBMITTED OR EDITING) ── */
           <form onSubmit={(e) => { e.preventDefault(); handleSubmitProposal(false); }} className="p-6 space-y-6">
-            
+
             {/* Subsection 1: Solution Overview */}
             <div className="space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 flex items-center gap-1.5">
@@ -642,54 +719,111 @@ export default function ProjectWorkspace() {
       </div>
 
       {/* ══════════════════════════════════════════════════
-          PROJECT MILESTONES (COLLAPSIBLE / SUMMARY)
+          PROJECT MILESTONES (INTERACTIVE DELIVERY PIPELINE)
           ══════════════════════════════════════════════════ */}
       <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-6 shadow-sm space-y-4">
-        <h4 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-          <Layers className="w-4 h-4 text-blue-600" />
-          Project Delivery Pipeline
-        </h4>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-100 dark:border-neutral-700/60">
+          <div>
+            <h4 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+              <Layers className="w-4 h-4 text-blue-600" />
+              Project Delivery Pipeline & Milestones
+            </h4>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Track and update your research deliverables. Completing milestones updates statewide progress trackers.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
+              {completedMilestones} of {milestones.length} Completed ({progressPercent}%)
+            </span>
+          </div>
+        </div>
+
+        {/* Visual Progress Bar */}
+        <div className="w-full bg-neutral-100 dark:bg-neutral-700 h-2.5 rounded-full overflow-hidden">
+          <div 
+            className="bg-gradient-to-r from-blue-600 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
           {milestones.map((m, idx) => {
             const isDone = m.status === 'completed'
             const isInProg = m.status === 'in_progress'
 
             return (
-              <div 
-                key={idx} 
-                className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2 ${
-                  isDone 
-                    ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40' 
-                    : isInProg
-                    ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/40'
+              <div
+                key={idx}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between gap-3 transition-all ${isDone
+                  ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+                  : isInProg
+                    ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/40 ring-1 ring-blue-300/40'
                     : 'bg-neutral-50 dark:bg-neutral-900/30 border-neutral-200 dark:border-neutral-700'
-                }`}
+                  }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase">Phase {idx + 1}</span>
-                  {isDone ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  ) : isInProg ? (
-                    <Circle className="w-4 h-4 text-blue-500 fill-blue-500/20" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-neutral-300 dark:text-neutral-600" />
-                  )}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase">Phase {idx + 1}</span>
+                    {isDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : isInProg ? (
+                      <Circle className="w-4 h-4 text-blue-500 fill-blue-500/20 animate-pulse" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-neutral-300 dark:text-neutral-600" />
+                    )}
+                  </div>
+
+                  <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200 leading-snug">
+                    {m.title}
+                  </p>
                 </div>
 
-                <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200 leading-snug">
-                  {m.title}
-                </p>
+                <div className="space-y-2 pt-2 border-t border-neutral-100 dark:border-neutral-700/60">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[9.5px] uppercase font-extrabold px-2 py-0.5 rounded ${isDone
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
+                      : isInProg
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
+                        : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-400'
+                      }`}>
+                      {m.status.replace('_', ' ')}
+                    </span>
+                  </div>
 
-                <span className={`text-[9.5px] uppercase font-extrabold px-2 py-0.5 rounded self-start ${
-                  isDone 
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300' 
-                    : isInProg
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
-                    : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-400'
-                }`}>
-                  {m.status.replace('_', ' ')}
-                </span>
+                  {/* Interactive Status Toggle Buttons */}
+                  <div className="flex items-center gap-1.5">
+                    {!isDone ? (
+                      <>
+                        {isInProg ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateMilestoneStatus(idx, 'completed')}
+                            className="w-full text-[11px] font-bold py-1 px-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <Check className="w-3 h-3" /> Mark Done
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateMilestoneStatus(idx, 'in_progress')}
+                            className="w-full text-[11px] font-bold py-1 px-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer"
+                          >
+                            Start Phase
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateMilestoneStatus(idx, 'in_progress')}
+                        className="w-full text-[10px] font-semibold py-1 px-2 rounded border border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
+                      >
+                        Reopen Phase
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )
           })}

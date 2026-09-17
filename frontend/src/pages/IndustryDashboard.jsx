@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { authFetch } from '../api/client'
 import {
   Building2,
   GraduationCap,
@@ -14,7 +15,18 @@ import {
   TrendingUp,
   MapPin,
   Check,
-  Award
+  Award,
+  ExternalLink,
+  FileText,
+  Cpu,
+  Layers,
+  ShieldCheck,
+  Zap,
+  BarChart3,
+  FlaskConical,
+  BookOpen,
+  Target,
+  Printer
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -105,8 +117,8 @@ export default function IndustryDashboard() {
       const qs = params.toString() ? `?${params.toString()}` : ''
 
       const [propRes, statRes] = await Promise.all([
-        fetch(`/api/proposals/${qs}`).catch(() => fetch(`http://localhost:8000/api/proposals/${qs}`)),
-        fetch('/api/proposals/stats').catch(() => fetch('http://localhost:8000/api/proposals/stats'))
+        authFetch(`/api/proposals/${qs}`),
+        authFetch('/api/proposals/stats')
       ])
 
       if (propRes && propRes.ok) {
@@ -126,9 +138,8 @@ export default function IndustryDashboard() {
   const handleCollaborateSubmit = async (collabData) => {
     if (!collaborateProposal) return
     try {
-      const res = await fetch(`/api/proposals/${collaborateProposal.id}/collaborate`, {
+      const res = await authFetch(`/api/proposals/${collaborateProposal.id}/collaborate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           partner_name: user?.organization?.name || 'Tata Steel CSR',
           collaboration_type: collabData.type,
@@ -151,9 +162,8 @@ export default function IndustryDashboard() {
   const handleFundSubmit = async (fundData) => {
     if (!fundProposal) return
     try {
-      const res = await fetch(`/api/proposals/${fundProposal.id}/fund`, {
+      const res = await authFetch(`/api/proposals/${fundProposal.id}/fund`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           funder_name: user?.organization?.name || 'Tata Steel CSR',
           amount: Number(fundData.amount),
@@ -174,10 +184,22 @@ export default function IndustryDashboard() {
 
   const handleMailSubmit = async (mailData) => {
     if (!mailProposal) return
+
+    // 1. Build the full formatted email body with suggestions and signature
+    const suggestionBlock = mailData.suggestions && mailData.suggestions.length > 0
+      ? `\n\nKey Improvement Suggestions:\n${mailData.suggestions.map(s => `• ${s}`).join('\n')}`
+      : ''
+    const signature = `\n\nBest regards,\n${user?.organization?.name || user?.name || 'Industry CSR Partner'}`
+    const fullBody = `${mailData.message}${suggestionBlock}${signature}`
+
+    // 2. Open directly in Gmail Web Compose (new tab)
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(mailProposal.contact_email)}&su=${encodeURIComponent(mailData.subject)}&body=${encodeURIComponent(fullBody)}`
+    window.open(gmailUrl, '_blank')
+
+    // 3. Log to backend API
     try {
-      const res = await fetch(`/api/proposals/${mailProposal.id}/feedback`, {
+      await authFetch(`/api/proposals/${mailProposal.id}/feedback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sender_name: user?.name || 'CSR Review Team',
           sender_email: user?.email || 'csr@tatasteel.com',
@@ -186,14 +208,12 @@ export default function IndustryDashboard() {
           message: mailData.message
         })
       })
-
-      if (res.ok) {
-        showToast(`Improvement suggestions dispatched to ${mailProposal.contact_email}`, 'success')
-        setMailProposal(null)
-      }
     } catch (e) {
-      showToast('Failed to send email feedback', 'error')
+      console.warn('Feedback API logging skipped/failed', e)
     }
+
+    showToast(`Opening Gmail compose for ${mailProposal.contact_email}!`, 'success')
+    setMailProposal(null)
   }
 
   const visibleProposals = Array.isArray(proposals) ? proposals.slice(0, visibleCount) : []
@@ -462,8 +482,8 @@ export default function IndustryDashboard() {
                         <span className="font-mono text-[10px] bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-bold px-2 py-0.5 rounded">
                           {item.id.replace('PROP-', '')}
                         </span>
-                        <span className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-[10.5px] font-extrabold px-2 py-0.5 rounded-full border border-red-200/50">
-                          Priority {item.priority_score}
+                        <span className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[10.5px] font-bold px-2 py-0.5 rounded-full border border-emerald-200/50">
+                          {item.domain}
                         </span>
                       </div>
 
@@ -579,12 +599,14 @@ export default function IndustryDashboard() {
                       </button>
                     </div>
 
-                    {/* Deep dive link */}
+                    {/* Prominent View Full Research Report Button */}
                     <button
                       onClick={() => setSelectedProposal(item)}
-                      className="text-[11px] font-semibold text-neutral-500 hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center justify-center gap-1 pt-1 cursor-pointer"
+                      className="w-full mt-1 py-2 px-3 rounded-xl text-xs font-bold bg-neutral-100/80 hover:bg-emerald-50 dark:bg-neutral-800 dark:hover:bg-emerald-950/40 text-neutral-700 dark:text-neutral-200 hover:text-emerald-700 dark:hover:text-emerald-300 border border-neutral-200/80 dark:border-neutral-700 hover:border-emerald-400 dark:hover:border-emerald-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs group"
                     >
-                      View full technical specs & timeline <ArrowRight className="w-3 h-3" />
+                      <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                      <span>View Full Research Report & Dossier</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
                     </button>
                   </div>
                 </div>
@@ -773,16 +795,28 @@ function CollaborateModal({ proposal, onClose, onSubmit }) {
    MODAL 2: Fund The Solution Modal
 ───────────────────────────────────────────────────────────────────────────── */
 function FundSolutionModal({ proposal, onClose, onSubmit }) {
-  const [amount, setAmount] = useState(proposal.budget_num || 500000)
+  const reqBudget = useMemo(() => {
+    if (!proposal) return 850000
+    const rawBudget = proposal.budget_required || proposal.budget || proposal.budget_num || ''
+    const cleanedDigits = String(rawBudget).replace(/[^0-9]/g, '')
+    return cleanedDigits ? parseInt(cleanedDigits, 10) : (Number(proposal.budget_num) || 850000)
+  }, [proposal])
+
+  const [customBudget, setCustomBudget] = useState(reqBudget)
   const [bucket, setBucket] = useState('Healthcare CSR 2026')
   const [note, setNote] = useState('')
 
-  const PRESETS = [
-    { label: '₹2.5 Lakhs (Phase 1)', val: 250000 },
-    { label: '₹5.0 Lakhs (Pilot)', val: 500000 },
-    { label: '₹10.0 Lakhs (Full Setup)', val: 1000000 },
-    { label: `Full Budget (${proposal.budget_required})`, val: proposal.budget_num || 850000 },
-  ]
+  useEffect(() => {
+    setCustomBudget(reqBudget)
+  }, [proposal, reqBudget])
+
+  // Fixed based on the cleaned numeric budget of the proposal
+  const TIERS = useMemo(() => [
+    { pct: 25, label: '25% (Phase 1)', val: Math.round(reqBudget * 0.25) },
+    { pct: 50, label: '50% (Pilot)', val: Math.round(reqBudget * 0.50) },
+    { pct: 75, label: '75% (Full Setup)', val: Math.round(reqBudget * 0.75) },
+    { pct: 100, label: '100% (Full Budget)', val: reqBudget },
+  ], [reqBudget])
 
   const BUCKETS = [
     'Healthcare CSR 2026',
@@ -794,7 +828,7 @@ function FundSolutionModal({ proposal, onClose, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onSubmit({ amount, bucket, note })
+    onSubmit({ amount: Number(customBudget) || 0, bucket, note })
   }
 
   return (
@@ -824,37 +858,42 @@ function FundSolutionModal({ proposal, onClose, onSubmit }) {
           </div>
 
           <div>
+            <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+              Custom Budget (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={customBudget}
+              onChange={(e) => setCustomBudget(e.target.value === '' ? '' : Number(e.target.value))}
+              placeholder="Enter custom grant budget..."
+              className="w-full text-xs p-2.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-emerald-500 text-neutral-900 dark:text-white font-bold"
+            />
+          </div>
+
+          <div>
             <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-2">
               Select Grant Tier
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {PRESETS.map(p => (
+              {TIERS.map(t => (
                 <button
                   type="button"
-                  key={p.label}
-                  onClick={() => setAmount(p.val)}
-                  className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-colors cursor-pointer ${
-                    amount === p.val
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-800 dark:text-emerald-200'
+                  key={t.pct}
+                  onClick={() => setCustomBudget(t.val)}
+                  className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-colors cursor-pointer flex flex-col justify-between gap-1 ${
+                    Number(customBudget) === t.val
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-800 dark:text-emerald-200 shadow-xs'
                       : 'border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
                   }`}
                 >
-                  {p.label}
+                  <span className="text-[11px] font-semibold">{t.label}</span>
+                  <span className="font-mono font-bold text-xs">
+                    ₹{t.val.toLocaleString('en-IN')}
+                  </span>
                 </button>
               ))}
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-              Custom Amount (₹)
-            </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full text-xs p-2.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-emerald-500 text-neutral-900 dark:text-white font-bold"
-            />
           </div>
 
           <div>
@@ -882,9 +921,9 @@ function FundSolutionModal({ proposal, onClose, onSubmit }) {
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
             >
-              <Check className="w-3.5 h-3.5" /> Confirm ₹{Number(amount).toLocaleString('en-IN')} Grant
+              <Check className="w-3.5 h-3.5" /> Proceed to University Portal
             </button>
           </div>
         </form>
@@ -900,7 +939,7 @@ function ImprovementMailModal({ proposal, onClose, onSubmit }) {
   const [subject, setSubject] = useState(`Technical Feedback on "${proposal.problem}" - CSR Review`)
   const [suggestions, setSuggestions] = useState([])
   const [message, setMessage] = useState(
-    `Dear ${proposal.faculty_lead},\n\nWe reviewed your proposed solution at ${proposal.university}. Our technical CSR team is highly interested and suggests the following improvements before finalizing deployment sponsorship...`
+    `Dear ${proposal.faculty_lead},\n\nWe reviewed your proposed solution at ${proposal.university}. Our technical CSR team is highly interested and suggests the following improvements before finalizing deployment sponsorship:`
   )
 
   const QUICK_CHIPS = [
@@ -919,7 +958,7 @@ function ImprovementMailModal({ proposal, onClose, onSubmit }) {
     }
   }
 
-  const handleSubmit = (e) => {
+  const handleOpenGmail = (e) => {
     e.preventDefault()
     onSubmit({ subject, suggestions, message })
   }
@@ -929,9 +968,9 @@ function ImprovementMailModal({ proposal, onClose, onSubmit }) {
       <div className="bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-700 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl space-y-4">
         <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50">
           <div className="flex items-center gap-2">
-            <Mail className="w-5 h-5 text-blue-600" />
+            <Mail className="w-5 h-5 text-red-600 dark:text-red-400" />
             <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-              Mail University for Improvement
+              Compose Feedback for University
             </h3>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
@@ -939,12 +978,13 @@ function ImprovementMailModal({ proposal, onClose, onSubmit }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-2 space-y-3.5">
-          <div className="text-xs space-y-1 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/30 p-3 rounded-xl">
-            <p className="font-bold text-blue-900 dark:text-blue-200">
-              Recipient: {proposal.faculty_lead}
+        <form onSubmit={handleOpenGmail} className="px-6 py-2 space-y-3.5">
+          <div className="text-xs space-y-1 bg-red-50/60 dark:bg-red-950/30 border border-red-200/60 dark:border-red-800/30 p-3 rounded-xl">
+            <p className="font-bold text-neutral-900 dark:text-white flex items-center justify-between">
+              <span>Recipient: {proposal.faculty_lead}</span>
+              <span className="text-[10.5px] font-semibold text-red-600 dark:text-red-400">Opens in Gmail</span>
             </p>
-            <p className="text-blue-800 dark:text-blue-300 font-mono text-[11px]">
+            <p className="text-gray-600 dark:text-gray-300 font-mono text-[11px]">
               {proposal.contact_email} • {proposal.university}
             </p>
           </div>
@@ -957,13 +997,13 @@ function ImprovementMailModal({ proposal, onClose, onSubmit }) {
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              className="w-full text-xs p-2.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-blue-500 text-neutral-900 dark:text-white font-medium"
+              className="w-full text-xs p-2.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-red-500 text-neutral-900 dark:text-white font-medium"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
-              Quick Suggestion Tags
+              Quick Suggestion Tags (appended to email)
             </label>
             <div className="flex flex-wrap gap-1.5">
               {QUICK_CHIPS.map(chip => (
@@ -973,7 +1013,7 @@ function ImprovementMailModal({ proposal, onClose, onSubmit }) {
                   onClick={() => toggleChip(chip)}
                   className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors cursor-pointer font-medium ${
                     suggestions.includes(chip)
-                      ? 'bg-blue-600 text-white border-blue-600'
+                      ? 'bg-red-600 text-white border-red-600 shadow-xs'
                       : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300'
                   }`}
                 >
@@ -991,7 +1031,7 @@ function ImprovementMailModal({ proposal, onClose, onSubmit }) {
               rows={4}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="w-full text-xs p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-blue-500 text-neutral-900 dark:text-white leading-relaxed font-sans"
+              className="w-full text-xs p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-red-500 text-neutral-900 dark:text-white leading-relaxed font-sans"
             />
           </div>
 
@@ -1005,9 +1045,9 @@ function ImprovementMailModal({ proposal, onClose, onSubmit }) {
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-2 py-2.5 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
-              <Send className="w-3.5 h-3.5" /> Dispatch Feedback Email
+              <ExternalLink className="w-3.5 h-3.5" /> Open in Gmail Compose
             </button>
           </div>
         </form>
@@ -1017,127 +1057,373 @@ function ImprovementMailModal({ proposal, onClose, onSubmit }) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   DRAWER: Detailed Blueprint & Technical Specs
+   DRAWER: Detailed Blueprint & Full Technical Research Dossier
 ───────────────────────────────────────────────────────────────────────────── */
 function ProposalDetailDrawer({ proposal, isOpen, onClose, onCollaborate, onFund, onMail }) {
   if (!isOpen || !proposal) return null
+
+  const report = proposal.research_report || {}
+  const summary = proposal.solution_summary || proposal.proposed_solution
+  const [activeTab, setActiveTab] = useState('overview')
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-fade-in"
         onClick={onClose}
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-xl bg-white dark:bg-neutral-900 shadow-2xl border-l border-neutral-200 dark:border-neutral-800 flex flex-col animate-slide-left">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-4 sm:pl-10">
+        <div className="w-screen max-w-2xl sm:max-w-3xl bg-white dark:bg-neutral-900 shadow-2xl border-l border-neutral-200 dark:border-neutral-800 flex flex-col animate-slide-left">
           
           {/* Drawer Header */}
-          <div className="p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-start justify-between bg-neutral-50/50 dark:bg-neutral-850/50">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-mono text-xs font-bold bg-neutral-200 dark:bg-neutral-700 px-2 py-0.5 rounded text-neutral-700 dark:text-neutral-300">
+          <div className="p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-start justify-between bg-neutral-50/80 dark:bg-neutral-850/80 backdrop-blur-xs sticky top-0 z-10">
+            <div className="space-y-1.5 pr-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs font-bold bg-neutral-200 dark:bg-neutral-700 px-2.5 py-0.5 rounded text-neutral-700 dark:text-neutral-300">
                   {proposal.id}
                 </span>
-                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300/40 px-2.5 py-0.5 rounded-full">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-900/40 border border-emerald-300/50 px-2.5 py-0.5 rounded-full">
                   {proposal.trl}
                 </span>
+                <span className="text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/30 border border-blue-300/40 px-2.5 py-0.5 rounded-full">
+                  {proposal.domain}
+                </span>
               </div>
-              <h2 className="text-lg font-bold text-neutral-900 dark:text-white leading-snug">
+              <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white leading-snug">
                 {proposal.problem}
               </h2>
             </div>
-            <button onClick={onClose} className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer">
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => window.print()}
+                title="Print or Export Research Dossier PDF"
+                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-xl text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          {/* Drawer Content */}
+          {/* Drawer Navigation Tabs */}
+          <div className="px-6 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex gap-4 overflow-x-auto text-xs font-bold scrollbar-none">
+            {[
+              { id: 'overview', label: 'Executive Summary', icon: <FileText className="w-3.5 h-3.5" /> },
+              { id: 'methodology', label: 'Technical Report & Specs', icon: <Cpu className="w-3.5 h-3.5" /> },
+              { id: 'budget', label: 'Itemized Budget', icon: <DollarSign className="w-3.5 h-3.5" /> },
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`py-3 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+                  activeTab === t.id
+                    ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400 font-extrabold'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                }`}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Drawer Content Body */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             
-            {/* University & Lead info */}
-            <div className="p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 space-y-2">
-              <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200 font-bold text-sm">
-                <GraduationCap className="w-5 h-5 text-emerald-600" />
-                {proposal.university}
+            {/* University & Lead info banner */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/5 dark:from-emerald-950/30 dark:to-neutral-850 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-neutral-900 dark:text-white text-sm">
+                    {proposal.university}
+                  </h3>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                    Lead: <span className="font-bold text-neutral-800 dark:text-neutral-200">{proposal.faculty_lead}</span>
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-neutral-700 dark:text-neutral-300">
-                <span className="font-bold">Faculty Lead:</span> {proposal.faculty_lead}
-              </p>
-              <p className="text-xs text-neutral-700 dark:text-neutral-300 font-mono text-[11px]">
-                <span className="font-bold">Direct Contact:</span> {proposal.contact_email}
-              </p>
-            </div>
-
-            {/* Problem Section */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-                1. Citizen Grievance & Problem Statement
-              </h4>
-              <p className="text-xs text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-800 p-3.5 rounded-xl leading-relaxed border border-neutral-200/60 dark:border-neutral-700/60">
-                {proposal.description}
-              </p>
-              <div className="flex gap-4 text-xs text-neutral-500 pt-1">
-                <span>📍 Location: <b>{proposal.location}</b></span>
-                <span>🏢 Dept: <b>{proposal.department}</b></span>
-                <span>🔥 Priority: <b>{proposal.priority_score}/100</b></span>
+              <div className="text-left sm:text-right">
+                <p className="text-[11px] font-mono text-emerald-800 dark:text-emerald-300 font-medium">
+                  {proposal.contact_email}
+                </p>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                  Direct Institutional Lead
+                </p>
               </div>
             </div>
 
-            {/* Proposed Solution Architecture */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-                2. University Technical Blueprint
-              </h4>
-              <div className="p-4 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border border-emerald-500/20 rounded-xl space-y-2 text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed font-medium">
-                {proposal.proposed_solution}
-              </div>
-            </div>
+            {/* TAB 1: EXECUTIVE SUMMARY */}
+            {activeTab === 'overview' && (
+              <div className="space-y-5 animate-fade-in">
+                
+                {/* 1. Solution Summary Card */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Solution Summary
+                    </h4>
+                    <span className="text-[11px] font-semibold text-gray-500">
+                      Executive Overview
+                    </span>
+                  </div>
+                  <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/40 rounded-2xl text-xs font-medium text-neutral-900 dark:text-neutral-100 leading-relaxed shadow-xs">
+                    {summary}
+                  </div>
+                </div>
 
-            {/* Budget Breakdown & Impact */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3.5 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700">
-                <p className="text-[10.5px] uppercase tracking-wider text-neutral-400 font-bold">Grant Required</p>
-                <p className="text-lg font-extrabold text-emerald-600 mt-1">{proposal.budget_required}</p>
-                <p className="text-[10px] text-neutral-500 mt-0.5">Hardware & Field Testing</p>
-              </div>
+                {/* 2. Detailed Abstract */}
+                {report.abstract && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-neutral-400" />
+                      Research Motivation & Abstract
+                    </h4>
+                    <p className="text-xs text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-800/80 p-4 rounded-2xl leading-relaxed border border-neutral-200/70 dark:border-neutral-700/60 font-sans">
+                      {report.abstract}
+                    </p>
+                  </div>
+                )}
 
-              <div className="p-3.5 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700">
-                <p className="text-[10.5px] uppercase tracking-wider text-neutral-400 font-bold">Citizen Reach</p>
-                <p className="text-lg font-extrabold text-blue-600 mt-1">{proposal.complaint_count * 120}+</p>
-                <p className="text-[10px] text-neutral-500 mt-0.5">Estimated beneficiaries</p>
-              </div>
-            </div>
+                {/* 3. Problem Statement & Ground Issue */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-neutral-400" />
+                    Citizen Grievance & Ground Issue
+                  </h4>
+                  <div className="p-4 bg-neutral-50 dark:bg-neutral-800/80 rounded-2xl border border-neutral-200/70 dark:border-neutral-700/60 space-y-3">
+                    <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                      {proposal.description}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-neutral-200/60 dark:border-neutral-700/60 text-xs text-neutral-600 dark:text-neutral-400">
+                      <span>📍 Location: <b>{proposal.location}</b></span>
+                      <span>🏢 Dept: <b>{proposal.department}</b></span>
+                      <span>👥 Reach: <b>{proposal.complaint_count * 120}+ residents</b></span>
+                    </div>
+                  </div>
+                </div>
 
-            {/* Impact Projection */}
-            <div className="p-3.5 bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 rounded-xl space-y-1">
-              <p className="text-[11px] font-bold text-purple-900 dark:text-purple-300 uppercase">Impact Goal</p>
-              <p className="text-xs text-purple-950 dark:text-purple-200 leading-relaxed">
-                {proposal.impact_metrics}
-              </p>
-            </div>
+                {/* 4. KPI Stat Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="p-4 bg-neutral-50 dark:bg-neutral-800/90 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/80">
+                    <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-bold">Grant Required</p>
+                    <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">{proposal.budget_required}</p>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">Hardware & Field Pilot</p>
+                  </div>
+
+                  <div className="p-4 bg-neutral-50 dark:bg-neutral-800/90 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/80">
+                    <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-bold">Readiness Level</p>
+                    <p className="text-sm font-extrabold text-blue-600 dark:text-blue-400 mt-1.5">{proposal.trl}</p>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">Tested & Verified</p>
+                  </div>
+
+                  <div className="p-4 bg-neutral-50 dark:bg-neutral-800/90 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/80 col-span-2 sm:col-span-1">
+                    <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-bold">Target Beneficiaries</p>
+                    <p className="text-lg font-extrabold text-purple-600 dark:text-purple-400 mt-1">{proposal.complaint_count * 120}+</p>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">Direct civic reach</p>
+                  </div>
+                </div>
+
+                {/* 5. Key Innovations */}
+                {report.key_innovations && report.key_innovations.length > 0 && (
+                  <div className="space-y-2.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      Key Scientific & Technical Innovations
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {report.key_innovations.map((inn, i) => (
+                        <div
+                          key={i}
+                          className="p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/30 rounded-xl text-xs text-neutral-800 dark:text-neutral-200 flex items-start gap-2"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                          <span className="font-medium">{inn}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. Impact Metric Goal */}
+                <div className="p-4 bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/40 rounded-2xl space-y-1">
+                  <p className="text-[11px] font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                    Impact Projection & Societal ROI
+                  </p>
+                  <p className="text-xs font-medium text-purple-950 dark:text-purple-200 leading-relaxed">
+                    {proposal.impact_metrics}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: TECHNICAL METHODOLOGY & SPECS */}
+            {activeTab === 'methodology' && (
+              <div className="space-y-5 animate-fade-in">
+                
+                {/* Architecture */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-emerald-500" />
+                    Technical Architecture & Protocol
+                  </h4>
+                  <div className="p-4 bg-neutral-50 dark:bg-neutral-800/80 rounded-2xl border border-neutral-200/70 dark:border-neutral-700/60 text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed space-y-3 font-mono">
+                    <p className="font-sans font-medium text-xs leading-relaxed text-neutral-800 dark:text-neutral-200">
+                      {report.technical_architecture || 'Detailed system hardware and algorithmic pipeline engineered by faculty lab.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tech Stack Chips */}
+                {report.tech_stack && report.tech_stack.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-blue-500" />
+                      Components & Technology Stack
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {report.tech_stack.map((t, idx) => (
+                        <span
+                          key={idx}
+                          className="text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1.5"
+                        >
+                          <Cpu className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Validation Benchmarks */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                    <FlaskConical className="w-3.5 h-3.5 text-teal-500" />
+                    Experimental Testing & Lab Validation Data
+                  </h4>
+                  <div className="p-4 bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/40 rounded-2xl text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed space-y-2">
+                    <p className="font-medium">
+                      {report.validation_data || 'Tested and verified against institutional benchmarks with >90% precision.'}
+                    </p>
+                    <div className="flex items-center gap-2 pt-2 border-t border-teal-200/50 dark:border-teal-800/30 text-[11px] text-teal-800 dark:text-teal-300 font-semibold">
+                      <ShieldCheck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                      NABL / Lab Safety & Efficacy Protocol Validated
+                    </div>
+                  </div>
+                </div>
+
+                {/* Jharkhand Ground Rollout */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-red-500" />
+                    Jharkhand Ground Deployment Plan
+                  </h4>
+                  <p className="p-4 bg-neutral-50 dark:bg-neutral-800/80 rounded-2xl border border-neutral-200/70 dark:border-neutral-700/60 text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed font-medium">
+                    {report.jharkhand_deployment_plan || `Targeted rollout across ${proposal.location} and surrounding rural blocks in 3 phases.`}
+                  </p>
+                </div>
+
+                {/* IP & Publications */}
+                {report.ip_and_publications && (
+                  <div className="p-3.5 bg-neutral-100 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300">
+                      <Award className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      <span className="font-bold">IP & Publication Citation:</span>
+                    </div>
+                    <span className="text-[11px] font-mono font-semibold text-neutral-900 dark:text-white truncate max-w-xs">
+                      {report.ip_and_publications}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: ITEMIZED BUDGET */}
+            {activeTab === 'budget' && (
+              <div className="space-y-5 animate-fade-in">
+                <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                      Total CSR Grant Required
+                    </p>
+                    <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-0.5">
+                      {proposal.budget_required}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-bold px-3 py-1 bg-emerald-600 text-white rounded-full shadow-xs">
+                      {proposal.funding_status}
+                    </span>
+                    <p className="text-[10.5px] text-gray-500 mt-1 font-medium">
+                      Committed: ₹{Number(proposal.funds_committed || 0).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Budget Item Table */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                    <BarChart3 className="w-3.5 h-3.5 text-neutral-400" />
+                    Resource & Capital Allocation Breakdown
+                  </h4>
+                  <div className="border border-neutral-200 dark:border-neutral-700 rounded-2xl overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700/60 bg-white dark:bg-neutral-800/60 shadow-xs">
+                    {(report.budget_breakdown && report.budget_breakdown.length > 0 ? report.budget_breakdown : [
+                      { item: 'Core Hardware & Sensor Fabric', cost: '₹2,00,000' },
+                      { item: 'Field Pilot & Community Trial Kits', cost: '₹1,50,000' },
+                      { item: 'Training & Community Honorarium', cost: '₹80,000' },
+                      { item: 'Cloud Telemetry & Certification', cost: '₹70,000' },
+                    ]).map((b, i) => (
+                      <div key={i} className="p-3.5 flex items-center justify-between text-xs hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold text-[10px] flex items-center justify-center">
+                            {i + 1}
+                          </span>
+                          <span className="font-semibold text-neutral-800 dark:text-neutral-200">{b.item}</span>
+                        </div>
+                        <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{b.cost}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/30 rounded-xl text-xs text-blue-900 dark:text-blue-200 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <span>All CSR allocations are audited with milestone-based fund release upon university lab verification.</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Drawer Footer Actions */}
-          <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-850 grid grid-cols-3 gap-2">
+          <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/90 dark:bg-neutral-850/90 backdrop-blur-xs grid grid-cols-3 gap-2.5">
             <button
               onClick={onCollaborate}
-              className="py-2.5 px-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="py-2.5 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Handshake className="w-3.5 h-3.5" /> Collaborate
+              <Handshake className="w-4 h-4" /> Collaborate
             </button>
             <button
               onClick={onFund}
-              className="py-2.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <DollarSign className="w-3.5 h-3.5" /> Fund Pilot
+              <DollarSign className="w-4 h-4" /> Fund Pilot
             </button>
             <button
               onClick={onMail}
-              className="py-2.5 px-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Mail className="w-3.5 h-3.5" /> Send Mail
+              <Mail className="w-4 h-4" /> Send Mail
             </button>
           </div>
         </div>

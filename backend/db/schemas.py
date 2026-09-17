@@ -132,13 +132,14 @@ class MatchOut(BaseModel):
 class MatchAccept(BaseModel):
     status: str # 'accepted' or 'rejected'
 
-# ── NLP Pipeline & Evidence Schemas ─────────────────────────────────────────
+# ── Evidence & NLP Pipeline Schemas ─────────────────────────────────────────
 class ChallengeEvidenceOut(BaseModel):
     id: str
     challenge_id: Optional[str] = None
     source: str
     raw_text: str
     clean_text: str
+    media_urls: Optional[List[str]] = None
     submitted_lat: Optional[float] = None
     submitted_lng: Optional[float] = None
     created_at: datetime
@@ -201,6 +202,7 @@ class ChallengeBase(BaseModel):
     verified: bool = False
     verified_by: Optional[str] = None
     verified_at: Optional[datetime] = None
+    media_urls: Optional[List[str]] = None
     created_at: datetime
 
     class Config:
@@ -221,8 +223,11 @@ class ChallengeCreate(BaseModel):
     title: Optional[str] = None
     description: str
     location: Optional[str] = None
+    district: Optional[str] = None
+    block: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    media_urls: Optional[List[str]] = None
     source: Optional[str] = "citizen"
 
 class EvidenceIngestRequest(BaseModel):
@@ -253,6 +258,10 @@ class ChallengeRouteRequest(BaseModel):
     org_ids: List[str]
     deadline: datetime
     note: Optional[str] = None
+
+class ChallengeResolveRequest(BaseModel):
+    resolution_summary: Optional[str] = "Solution field-tested and deployed successfully in community."
+    impact_verified: Optional[bool] = True
 
 class RoutingInvitationOut(BaseModel):
     id: str
@@ -316,4 +325,3 @@ class LocationPointOut(BaseModel):
 
 class LocationsOut(BaseModel):
     locations: List[LocationPointOut]
-

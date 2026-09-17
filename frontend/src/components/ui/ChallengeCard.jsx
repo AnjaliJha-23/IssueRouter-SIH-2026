@@ -3,13 +3,13 @@ import {
     Building2,
     ShieldCheck,
     ArrowRight,
-    Sparkles,
     GraduationCap,
     Clock,
     CheckCircle2,
     Share2,
     Users,
-    Check
+    Check,
+    Image as ImageIcon
 } from 'lucide-react'
 
 const getPriorityBadge = (score) => {
@@ -158,10 +158,15 @@ export default function ChallengeCard({ challenge, rank, onToggle, onVerify }) {
                         <span>{challenge.source_counts?.citizen || challenge.complaint_count || 1}</span>
                         <span className="text-neutral-400 text-[10px]">Citizen</span>
                     </span>
-                </div>
-                <div className="flex items-center gap-1 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
-                    <Sparkles size={11} className="text-indigo-500" />
-                    <span>AI Conf. {Math.round((challenge.ai_confidence || 0.92) * 100)}%</span>
+                    {challenge.media_urls && challenge.media_urls.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-200/60 dark:border-purple-800/40 text-[10.5px]">
+                            <ImageIcon size={11} />
+                            <span>{challenge.media_urls.length}</span>
+                            <span className="text-purple-500/80 dark:text-purple-400 text-[9.5px]">
+                                {challenge.media_urls.length === 1 ? 'Photo' : 'Photos'}
+                            </span>
+                        </span>
+                    )}
                 </div>
             </div>
 

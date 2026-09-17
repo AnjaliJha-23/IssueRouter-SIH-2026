@@ -8,7 +8,8 @@ export default function ProtectedRoute({ allowedRoles }) {
     return <Navigate to="/login" replace />
   }
 
-  if (allowedRoles && !allowedRoles.includes(user?.role)) {
+  // If allowedRoles is defined and user role is not permitted, block access
+  if (allowedRoles && user?.role && !allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" replace />
   }
 
