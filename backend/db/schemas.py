@@ -116,6 +116,16 @@ class ProjectOut(BaseModel):
     class Config:
         from_attributes = True
 
+class MilestoneItem(BaseModel):
+    title: str
+    status: str = "pending" # "pending" | "in_progress" | "completed"
+
+class MilestonesUpdateRequest(BaseModel):
+    milestones: List[MilestoneItem]
+
+class ProjectStatusUpdate(BaseModel):
+    status: str
+
 # ── Match ──────────────────────────────────────────────────────────────────
 class MatchOut(BaseModel):
     id: str

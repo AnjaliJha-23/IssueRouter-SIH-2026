@@ -802,100 +802,12 @@ def seed():
 
         db.bulk_save_objects(challenges)
         db.commit()
-<<<<<<< HEAD
-        
-        # --- SEED EVIDENCE AND AI ANALYSIS FOR CHALLENGES ---
-        evidences = []
-        analyses = []
-        matches = []
-        projects = []
-
-        for c in challenges:
-            # 1. Evidence item
-            ev_id = f"EV-{uuid.uuid4().hex[:8].upper()}"
-            evidences.append(ChallengeEvidence(
-                id=ev_id,
-                challenge_id=c.id,
-                source="citizen" if random.random() > 0.4 else "twitter",
-                raw_text=f"{c.title}. {c.official_description} Located at {c.location}.",
-                clean_text=f"{c.title}. {c.official_description} Located at {c.location}.",
-                submitted_lat=c.lat,
-                submitted_lng=c.lng,
-                created_at=c.created_at
-            ))
-
-            # 2. Challenge Analysis
-            domain_scores = {
-                c.domain: round(random.uniform(0.78, 0.96), 2),
-                "Public Administration": round(random.uniform(0.04, 0.12), 2),
-                "Infrastructure/Transport": round(random.uniform(0.02, 0.09), 2),
-            }
-            analyses.append(ChallengeAnalysis(
-                id=f"CA-{uuid.uuid4().hex[:8].upper()}",
-                challenge_id=c.id,
-                domain=c.domain,
-                subdomain=c.department,
-                domain_scores=domain_scores,
-                priority_score=c.priority_score,
-                priority_factors={
-                    "severity": round(c.priority_score * 0.30 / 100, 2),
-                    "evidence_volume": round(random.uniform(0.15, 0.25), 2),
-                    "confidence": round(random.uniform(0.18, 0.25), 2),
-                    "trend": round(random.uniform(0.10, 0.20), 2)
-                },
-                evidence_confidence=round(random.uniform(0.80, 0.98), 2),
-                trend=c.trend,
-                explanation=f"Zero-shot classification identified {c.domain} ({c.department}) with high confidence. Priority computed from {c.complaint_count} cross-verified civic signals.",
-                model_versions={
-                    "classification": "facebook/bart-large-mnli",
-                    "embeddings": "sentence-transformers/all-MiniLM-L6-v2",
-                    "summarization": "groq/compound-mini"
-                },
-                updated_at=c.created_at
-            ))
-
-            # 3. Matches and Projects
-            if c.status in ["matches_suggested", "ready_for_routing", "routed", "in_project", "resolved"]:
-                num_matches = random.randint(1, 3)
-                chosen_orgs = random.sample(["org-univ-1", "org-univ-2", "org-univ-3", "org-ind-1"], num_matches)
-                for i, org_id in enumerate(chosen_orgs):
-                    m_status = "suggested"
-                    if c.status in ["routed", "in_project", "resolved"] and i == 0:
-                        m_status = "accepted"
-                    matches.append(Match(
-                        id=str(uuid.uuid4()),
-                        challenge_id=c.id,
-                        org_id=org_id,
-                        match_score=random.randint(75, 98),
-                        match_reason=f"Strong research alignment and domain expertise in {c.department}.",
-                        status=m_status
-                    ))
-
-            if c.status in ["in_project", "resolved"]:
-                projects.append(Project(
-                    id=str(uuid.uuid4()),
-                    challenge_id=c.id,
-                    status="prototype" if c.status == "in_project" else "deployed",
-                    milestones_json=json.dumps([
-                        {"title": "Initial Research", "status": "completed"},
-                        {"title": "Prototype Phase", "status": "in_progress" if c.status == "in_project" else "completed"},
-                        {"title": "Deployment", "status": "pending" if c.status == "in_project" else "completed"}
-                    ])
-                ))
-
-        db.bulk_save_objects(evidences)
-        db.bulk_save_objects(analyses)
-        db.bulk_save_objects(matches)
-        db.bulk_save_objects(projects)
-        db.commit()
-
-        print(f"[seed] Successfully seeded 100 Jharkhand challenges with {len(evidences)} evidence records, {len(analyses)} AI analyses, {len(matches)} matches, and {len(projects)} projects for SIH demo.")
-=======
         print(f"[seed_mock_data] Seeded {len(challenges)} master challenges across Jharkhand.")
 
-        # ── 4. SEED EVIDENCE RECORDS ───────────────────────────────────────
-        print("[seed_mock_data] Seeding citizen & field evidence records...")
+        # ── 4. SEED EVIDENCE RECORDS & AI ANALYSES ─────────────────────────
+        print("[seed_mock_data] Seeding citizen & field evidence records and AI analyses...")
         evidence_records = []
+        analyses = []
         for ch in challenges:
             # 1. Citizen report evidence
             ev_id1 = f"ev-{ch.id.lower()}-1"
@@ -926,7 +838,39 @@ def seed():
                     created_at=ch.created_at + timedelta(hours=2)
                 ))
 
+            # 3. AI Analysis record
+            domain_scores = {
+                ch.domain: round(random.uniform(0.78, 0.96), 2),
+                "Public Administration": round(random.uniform(0.04, 0.12), 2),
+                "Infrastructure/Transport": round(random.uniform(0.02, 0.09), 2),
+            }
+            p_score = ch.priority_score if ch.priority_score is not None else 70
+            analyses.append(ChallengeAnalysis(
+                id=f"CA-{uuid.uuid4().hex[:8].upper()}",
+                challenge_id=ch.id,
+                domain=ch.domain,
+                subdomain=ch.department,
+                domain_scores=domain_scores,
+                priority_score=p_score,
+                priority_factors={
+                    "severity": round(p_score * 0.30 / 100, 2),
+                    "evidence_volume": round(random.uniform(0.15, 0.25), 2),
+                    "confidence": round(random.uniform(0.18, 0.25), 2),
+                    "trend": round(random.uniform(0.10, 0.20), 2)
+                },
+                evidence_confidence=round(random.uniform(0.80, 0.98), 2),
+                trend=ch.trend or "rising",
+                explanation=f"Zero-shot classification identified {ch.domain} ({ch.department}) with high confidence. Priority computed from {ch.complaint_count} cross-verified civic signals.",
+                model_versions={
+                    "classification": "facebook/bart-large-mnli",
+                    "embeddings": "sentence-transformers/all-MiniLM-L6-v2",
+                    "summarization": "groq/compound-mini"
+                },
+                updated_at=ch.created_at
+            ))
+
         db.bulk_save_objects(evidence_records)
+        db.bulk_save_objects(analyses)
         db.commit()
 
         # ── 5. SEED MATCHES ────────────────────────────────────────────────
@@ -1134,7 +1078,6 @@ def seed():
         db.commit()
 
         print(f"[seed_mock_data] SUCCESS! Seeded {len(challenges)} challenges, {len(matches)} matches, {len(routing_batches)} routing batches, {len(routing_invitations)} invitations, {len(projects)} active projects, and {len(proposals)} proposals.")
->>>>>>> origin/main
 
     finally:
         db.close()
