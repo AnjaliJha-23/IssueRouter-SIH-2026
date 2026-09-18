@@ -191,14 +191,19 @@ def create_challenge(
         raise HTTPException(status_code=500, detail="Failed to retrieve processed challenge from NLP pipeline")
     
     # Attach user ownership and media URLs if available
+    changed = False
     if current_user and not challenge.created_by:
         challenge.created_by = current_user.id
+        changed = True
     if req.media_urls:
-        existing_urls = challenge.media_urls or []
+        existing_urls = list(challenge.media_urls or [])
         for url in req.media_urls:
             if url not in existing_urls:
                 existing_urls.append(url)
-        challenge.media_urls = existing_urls
+        challenge.media_urls = list(existing_urls)
+        changed = True
+        
+    if changed:
         db.commit()
         db.refresh(challenge)
         
