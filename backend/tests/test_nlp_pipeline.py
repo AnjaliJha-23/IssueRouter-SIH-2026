@@ -248,7 +248,7 @@ class TestOrchestratorIntegration:
         res = process_evidence(evidence_in, test_db)
         assert res["status"] == "success"
         assert res["action"] == "new_challenge"
-        assert res["challenge_id"].startswith("HC-")
+        assert res["challenge_id"].startswith("CHL-")
 
         # Verify database entities
         challenge = test_db.query(Challenge).filter(Challenge.id == res["challenge_id"]).first()
