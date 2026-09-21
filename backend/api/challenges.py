@@ -37,7 +37,7 @@ from db.schemas import (
     PipelineProcessResponse
 )
 from api.auth import get_current_user, get_optional_current_user, require_roles
-from pipeline.orchestrator import process_evidence, analyze_challenge
+from pipeline import process_evidence, analyze_challenge
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
 

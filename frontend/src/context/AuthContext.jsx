@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { resolveApiUrl } from '../api/client'
 
 const AuthContext = createContext()
 
@@ -28,7 +29,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (token) {
       // Sync authenticated user profile from backend
-      fetch('/api/auth/me', {
+      fetch(resolveApiUrl('/api/auth/me'), {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => {
@@ -59,7 +60,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(resolveApiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })

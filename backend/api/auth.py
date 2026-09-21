@@ -16,10 +16,66 @@ except ImportError:
 from db.database import get_db
 from db.models import User, Organization
 
+import os
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-SECRET_KEY = "sih-2026-issuerouter-secure-jwt-secret-key-convergence"
+DEV_JWT_SECRET = "sih-2026-issuerouter-secure-jwt-secret-key-convergence"
 ALGORITHM = "HS256"
+
+# Permitted development environments for fallback secret
+DEV_ENVIRONMENTS = {"development", "dev", "local", "test", "testing"}
+
+
+def get_jwt_secret() -> str:
+    """
+    Resolve the JWT signing and verification secret.
+    Canonical environment variable: JWT_SECRET (with fallback to SECRET_KEY env var).
+
+    Security Policy:
+    - If JWT_SECRET or SECRET_KEY is set in environment: returns it.
+    - If not set:
+      - In production/staging (ENVIRONMENT is production/prod/staging or RENDER/cloud PORT is set):
+        raises RuntimeError refusing to boot or issue tokens with an insecure default.
+      - In development/testing (ENVIRONMENT in DEV_ENVIRONMENTS):
+        returns DEV_JWT_SECRET.
+      - If ENVIRONMENT is misconfigured (unrecognized non-dev value):
+        raises RuntimeError.
+      - If ENVIRONMENT is completely omitted in local development:
+        returns DEV_JWT_SECRET.
+    """
+    configured_secret = (os.getenv("JWT_SECRET") or "").strip() or (os.getenv("SECRET_KEY") or "").strip()
+    if configured_secret:
+        return configured_secret
+
+    raw_env = os.getenv("ENVIRONMENT")
+    env_str = raw_env.strip().lower() if raw_env is not None else ""
+
+    is_render = bool(os.getenv("RENDER") or os.getenv("RENDER_SERVICE_ID"))
+    is_explicit_prod = env_str in ("production", "prod", "staging")
+    has_cloud_port = bool(os.getenv("PORT") and os.getenv("PORT") != "8000")
+
+    if is_explicit_prod or is_render or has_cloud_port:
+        raise RuntimeError(
+            "CRITICAL: JWT_SECRET environment variable is missing in production/cloud environment. "
+            "A secure secret must be configured via the JWT_SECRET environment variable."
+        )
+
+    if env_str in DEV_ENVIRONMENTS:
+        return DEV_JWT_SECRET
+
+    if env_str:
+        raise RuntimeError(
+            f"CRITICAL: Unknown ENVIRONMENT='{raw_env}'. "
+            "Must be one of ('development', 'production', 'staging', 'test'). "
+            "Development fallback secret cannot be assumed."
+        )
+
+    return DEV_JWT_SECRET
+
+
+# Backwards compatibility symbol for any external code referencing SECRET_KEY
+SECRET_KEY = DEV_JWT_SECRET
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
@@ -41,7 +97,8 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     expire = datetime.utcnow() + (expires_delta if expires_delta else timedelta(days=7))
     to_encode.update({"exp": expire})
     if jwt:
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        signing_secret = get_jwt_secret()
+        encoded_jwt = jwt.encode(to_encode, signing_secret, algorithm=ALGORITHM)
     else: # Fallback if PyJWT isn't installed
         encoded_jwt = f"mock_token_{data['sub']}"
     return encoded_jwt
@@ -61,8 +118,9 @@ def decode_token(token: str) -> dict:
         return {"sub": sub}
         
     if jwt:
+        verification_secret = get_jwt_secret()
         try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            payload = jwt.decode(token, verification_secret, algorithms=[ALGORITHM])
             return payload
         except jwt.ExpiredSignatureError:
             raise HTTPException(

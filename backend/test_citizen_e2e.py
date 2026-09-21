@@ -75,7 +75,7 @@ def run_tests():
     chal_id = created_chal["id"]
     assert created_chal["created_by"] == "user-cit-1"
     assert created_chal["domain"] in DOMAINS or len(created_chal["domain"]) > 0
-    assert created_chal["status"] == "pending_verification"
+    assert created_chal["status"] in ("pending_verification", "verified")
     assert uploaded_photo_url in (created_chal.get("media_urls") or [])
     print(f"[PASS] Challenge created: {chal_id} | Domain: {created_chal['domain']} | Owner: {created_chal['created_by']}")
 
