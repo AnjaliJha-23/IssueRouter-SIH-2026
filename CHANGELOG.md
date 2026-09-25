@@ -1,5 +1,19 @@
 # Changelog
 
+## [Azure Deployment Readiness] - 2026-09-26
+
+### Backend Deployment Preparation
+- **Added Production ASGI/WSGI Server**: Added `gunicorn>=22.0.0` to `backend/requirements.txt` to support process management on Azure App Service Linux.
+- **Created Startup Command Configuration**: Created `backend/startup.txt` documenting the production startup command: `gunicorn -w 2 -k uvicorn.workers.UvicornWorker main:app`.
+- **Created Python Runtime Specification**: Created `backend/runtime.txt` specifying `python-3.11` for Azure Oryx build environment.
+- **Updated Environment Variable Documentation**: Updated `backend/.env.example` documenting required Azure Application Settings (`JWT_SECRET`, `CORS_ORIGINS`, `AUTO_SEED_ON_START`, `PORT`).
+
+### Intentionally Left Unchanged
+- **Application Code & Logic**: Preserved `backend/main.py`, routers, and authentication untouched.
+- **Database Layer**: Preserved SQLite engine, WAL configuration, models, schemas, and auto-seed logic untouched.
+- **NLP / ML Pipeline**: Preserved dual-mode pipeline architecture, heuristics, models, and Groq fallback logic untouched.
+- **Frontend Code**: No frontend files modified.
+
 ## [UI Clean-up] - 2026-09-12
 
 ### UI Elements Removed
