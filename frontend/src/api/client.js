@@ -1,21 +1,59 @@
 /**
- * api/client.js — Axios base client for IssueRouter backend.
- * All API calls go through /api which Vite proxies to http://localhost:8000.
+ * api/client.js — Centralized Axios and Fetch API client for IssueRouter backend.
+ * Reads backend API base URL from import.meta.env.VITE_API_URL.
  */
 import axios from 'axios'
 
+// Derive backend API base URL from Vite environment variable
+const envApiUrl = import.meta.env.VITE_API_URL
+export const API_BASE_URL = (envApiUrl && envApiUrl.trim() ? envApiUrl.trim() : 'http://localhost:8000').replace(/\/+$/, '')
+
+/**
+ * Resolve any endpoint path to full backend URL while avoiding double '/api/api/'.
+ * Examples:
+ *   resolveApiUrl('/api/challenges/') -> 'http://localhost:8000/api/challenges/'
+ *   resolveApiUrl('/stats/overview')  -> 'http://localhost:8000/api/stats/overview'
+ *   resolveApiUrl('https://example.com/api') -> 'https://example.com/api'
+ */
+export function resolveApiUrl(inputUrl) {
+  if (!inputUrl) return ''
+  if (inputUrl.startsWith('http://') || inputUrl.startsWith('https://')) {
+    return inputUrl
+  }
+
+  const cleanPath = inputUrl.startsWith('/') ? inputUrl : `/${inputUrl}`
+  if (cleanPath.startsWith('/api/') || cleanPath === '/api') {
+    return `${API_BASE_URL}${cleanPath}`
+  }
+  return `${API_BASE_URL}/api${cleanPath}`
+}
+
+/**
+ * Centralized Axios client instance.
+ * Default baseURL is `${API_BASE_URL}/api`.
+ */
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: `${API_BASE_URL}/api`,
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Request interceptor — attach auth token
+// Request interceptor — attach auth token and normalize paths
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`
   }
+
+  // If request URL already includes /api, strip it so baseURL=/api does not produce /api/api
+  if (config.url) {
+    if (config.url.startsWith('/api/')) {
+      config.url = config.url.substring(4)
+    } else if (config.url === '/api') {
+      config.url = '/'
+    }
+  }
+
   return config
 })
 
@@ -38,6 +76,9 @@ export function getAuthHeaders(extraHeaders = {}) {
   }
 }
 
+/**
+ * Centralized fetch helper with authentication and base URL resolution.
+ */
 export async function authFetch(inputUrl, options = {}) {
   const token = localStorage.getItem('token')
   const isFormData = options.body instanceof FormData
@@ -47,26 +88,19 @@ export async function authFetch(inputUrl, options = {}) {
     ...(options.headers || {}),
   }
 
-  try {
-    const res = await fetch(inputUrl, { ...options, headers })
-    return res
-  } catch (err) {
-    if (inputUrl.startsWith('http://localhost:8000/api/')) {
-      const relativeUrl = inputUrl.replace('http://localhost:8000', '')
-      return fetch(relativeUrl, { ...options, headers })
-    }
-    if (inputUrl.startsWith('/api/')) {
-      const directUrl = `http://localhost:8000${inputUrl}`
-      return fetch(directUrl, { ...options, headers })
-    }
-    throw err
-  }
+  const targetUrl = resolveApiUrl(inputUrl)
+  return fetch(targetUrl, { ...options, headers })
 }
 
+/**
+ * Helper to resolve media/static evidence upload URLs.
+ */
 export function getMediaUrl(url) {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return url.startsWith('/') ? url : `/${url}`
+  const cleanPath = url.startsWith('/') ? url : `/${url}`
+  return `${API_BASE_URL}${cleanPath}`
 }
 
 export default client
+

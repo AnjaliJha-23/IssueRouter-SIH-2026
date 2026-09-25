@@ -1,6 +1,7 @@
 """
 seed_universities.py — Seeds the SQLite database with Universities from CSV and creates accounts for them.
 """
+import os
 import sys
 import csv
 import uuid
@@ -12,19 +13,40 @@ sys.path.insert(0, str(Path(__file__).parent))
 from db.database import engine, SessionLocal, Base
 from db.models import Organization, User
 
-CSV_PATH = Path(__file__).parent.parent / "docs" / "Jharkhand universities list with domains updated.csv"
+
+def resolve_csv_path() -> Path:
+    """Resolve Jharkhand universities CSV across root, backend, and environment paths."""
+    env_path = os.getenv("UNIVERSITIES_CSV_PATH")
+    if env_path and Path(env_path).exists():
+        return Path(env_path)
+
+    candidates = [
+        Path(__file__).resolve().parent.parent / "docs" / "Jharkhand universities list with domains updated.csv",
+        Path(__file__).resolve().parent / "docs" / "Jharkhand universities list with domains updated.csv",
+        Path.cwd() / "docs" / "Jharkhand universities list with domains updated.csv",
+        Path.cwd() / "backend" / "docs" / "Jharkhand universities list with domains updated.csv",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[0]
+
+
+CSV_PATH = resolve_csv_path()
+
 
 def seed():
     print("[seed_universities] Creating tables if not exist...")
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
 
+    csv_file = resolve_csv_path()
     try:
-        if not CSV_PATH.exists():
-            print(f"Error: CSV not found at {CSV_PATH}")
+        if not csv_file.exists():
+            print(f"Error: CSV not found at {csv_file}")
             return
             
-        with open(CSV_PATH, "r", encoding="utf-8") as f:
+        with open(csv_file, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             
             added = 0

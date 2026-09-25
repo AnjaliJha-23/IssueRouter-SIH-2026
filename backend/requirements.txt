@@ -1,7 +1,8 @@
-# IssueRouter backend dependencies
+# IssueRouter backend production dependencies (Lightweight Core)
 # Core API framework
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
+gunicorn>=22.0.0
 
 # Database
 sqlalchemy>=2.0.0
@@ -9,20 +10,14 @@ sqlalchemy>=2.0.0
 # Data validation
 pydantic>=2.6.0
 
-# NLP pipeline (legacy — optional if not using ML)
-transformers>=4.40.0
-torch>=2.2.0
-sentence-transformers>=2.7.0
+# Numerical & Lightweight processing
 scikit-learn>=1.4.0
 numpy>=1.26.0
 scipy>=1.13.0
-huggingface-hub>=0.22.0
-tokenizers>=0.19.0
 
 # Utilities
 python-dotenv>=1.0.0
 httpx>=0.27.0
 pyjwt>=2.8.0
 python-multipart>=0.0.9
-spacy>=3.7.0
 

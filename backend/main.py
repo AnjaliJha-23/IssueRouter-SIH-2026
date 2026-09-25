@@ -15,7 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # ── DB setup ───────────────────────────────────────────────────────────────
-from db.database import engine, Base
+from db.database import engine, Base, SessionLocal
+from db.models import Challenge
 
 # ── Routers ─────────────────────────────────────────────────────────────
 from api.auth import router as auth_router
@@ -38,13 +39,47 @@ app = FastAPI(
     version="2.1.0",
 )
 
+# ── CORS setup ─────────────────────────────────────────────────────────────
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",   # Vite dev server
+    "http://127.0.0.1:5173",
+]
+
+
+def get_cors_origins() -> list[str]:
+    """
+    Parse and validate allowed CORS origins from CORS_ORIGINS environment variable.
+    - If CORS_ORIGINS is unset in environment: defaults to local development origins.
+    - If CORS_ORIGINS is set: splits by comma, trims, and filters empty items.
+    - If CORS_ORIGINS is explicitly present but empty/whitespace-only: raises ValueError
+      to prevent silently falling back or broadening access.
+    """
+    if "CORS_ORIGINS" not in os.environ:
+        return list(DEFAULT_CORS_ORIGINS)
+
+    raw_origins = os.environ["CORS_ORIGINS"]
+    if not raw_origins or not raw_origins.strip():
+        raise ValueError(
+            "CORS_ORIGINS environment variable is set but empty. "
+            "Provide at least one valid origin or unset CORS_ORIGINS to use default development origins."
+        )
+
+    parsed = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+    if not parsed:
+        raise ValueError(
+            "CORS_ORIGINS environment variable contains no valid origins after parsing. "
+            "Provide at least one valid origin or unset CORS_ORIGINS to use default development origins."
+        )
+
+    return parsed
+
+
+cors_origins = get_cors_origins()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",   # Vite dev server
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -92,6 +127,41 @@ def startup_event():
     except Exception as e:
         print("[IssueRouter-SIH] Startup column check notice:", e)
     print("[IssueRouter-SIH] DB ready.")
+
+    # ── Security & environment configuration logging ────────────────────────
+    try:
+        active_origins = get_cors_origins()
+        print(f"[CONFIG] CORS origins configured: {len(active_origins)}")
+    except Exception as cors_err:
+        print(f"[CONFIG] CORS configuration error: {cors_err}")
+    
+    has_jwt_secret = bool((os.getenv("JWT_SECRET") or "").strip() or (os.getenv("SECRET_KEY") or "").strip())
+    print(f"[CONFIG] JWT secret configured: {'yes' if has_jwt_secret else 'no'}")
+
+    # ── Auto-seeding on start (if configured) ──────────────────────────────
+    auto_seed = os.getenv("AUTO_SEED_ON_START", "false").strip().lower() in ("true", "1", "yes")
+    if auto_seed:
+        db = SessionLocal()
+        try:
+            challenge_count = db.query(Challenge).count()
+            if challenge_count == 0:
+                print("[IssueRouter-SIH] AUTO_SEED_ON_START is true and database is empty (0 challenges). Running seed...")
+                try:
+                    import seed_mock_data
+                    seed_mock_data.seed()
+                    try:
+                        import seed_universities
+                        seed_universities.seed()
+                    except Exception as u_err:
+                        print(f"[IssueRouter-SIH] Warning: University seed failed: {u_err}")
+                    print("[IssueRouter-SIH] Auto-seed complete.")
+                except Exception as seed_err:
+                    print(f"[IssueRouter-SIH] CRITICAL: Auto-seed failed: {seed_err}")
+                    raise seed_err
+            else:
+                print(f"[IssueRouter-SIH] Database already contains {challenge_count} challenges. Auto-seed skipped.")
+        finally:
+            db.close()
 
 # ── Health check ───────────────────────────────────────────────────────────
 @app.get("/", tags=["health"])
