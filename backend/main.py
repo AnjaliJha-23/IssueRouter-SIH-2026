@@ -9,13 +9,15 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-from fastapi import FastAPI
+from typing import Optional
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 # ── DB setup ───────────────────────────────────────────────────────────────
-from db.database import engine, Base
+from db.database import engine, Base, get_db
 
 # ── Routers ─────────────────────────────────────────────────────────────
 from api.auth import router as auth_router
@@ -38,13 +40,22 @@ app = FastAPI(
     version="2.1.0",
 )
 
+# ── CORS configuration ─────────────────────────────────────────────────────
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:5173",   # Vite dev server
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+]
+
+env_origins = os.getenv("ALLOWED_ORIGINS") or os.getenv("CORS_ORIGINS")
+if env_origins:
+    configured_origins = [origin.strip() for origin in env_origins.split(",") if origin.strip()]
+else:
+    configured_origins = DEFAULT_ALLOWED_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",   # Vite dev server
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-    ],
+    allow_origins=configured_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,30 +79,47 @@ def startup_event():
     print("[IssueRouter-SIH] Creating DB tables if not exist…")
     Base.metadata.create_all(bind=engine)
     try:
+        from sqlalchemy import inspect
         with engine.connect() as conn:
+            inspector = inspect(conn)
+            table_names = inspector.get_table_names()
+
             # 1. Projects org_id migration
-            proj_cols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(projects)").fetchall()]
-            if "org_id" not in proj_cols:
-                conn.exec_driver_sql("ALTER TABLE projects ADD COLUMN org_id VARCHAR REFERENCES organizations(id)")
-                conn.commit()
-                print("[IssueRouter-SIH] Migrated projects table: added org_id column.")
+            if "projects" in table_names:
+                proj_cols = [c["name"] for c in inspector.get_columns("projects")]
+                if "org_id" not in proj_cols:
+                    conn.exec_driver_sql("ALTER TABLE projects ADD COLUMN org_id VARCHAR REFERENCES organizations(id)")
+                    conn.commit()
+                    print("[IssueRouter-SIH] Migrated projects table: added org_id column.")
 
             # 2. Challenges media_urls migration
-            ch_cols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(challenges)").fetchall()]
-            if "media_urls" not in ch_cols:
-                conn.exec_driver_sql("ALTER TABLE challenges ADD COLUMN media_urls JSON")
-                conn.commit()
-                print("[IssueRouter-SIH] Migrated challenges table: added media_urls column.")
+            if "challenges" in table_names:
+                ch_cols = [c["name"] for c in inspector.get_columns("challenges")]
+                if "media_urls" not in ch_cols:
+                    conn.exec_driver_sql("ALTER TABLE challenges ADD COLUMN media_urls JSON")
+                    conn.commit()
+                    print("[IssueRouter-SIH] Migrated challenges table: added media_urls column.")
 
             # 3. ChallengeEvidence media_urls migration
-            ev_cols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(challenge_evidence)").fetchall()]
-            if "media_urls" not in ev_cols:
-                conn.exec_driver_sql("ALTER TABLE challenge_evidence ADD COLUMN media_urls JSON")
-                conn.commit()
-                print("[IssueRouter-SIH] Migrated challenge_evidence table: added media_urls column.")
+            if "challenge_evidence" in table_names:
+                ev_cols = [c["name"] for c in inspector.get_columns("challenge_evidence")]
+                if "media_urls" not in ev_cols:
+                    conn.exec_driver_sql("ALTER TABLE challenge_evidence ADD COLUMN media_urls JSON")
+                    conn.commit()
+                    print("[IssueRouter-SIH] Migrated challenge_evidence table: added media_urls column.")
     except Exception as e:
         print("[IssueRouter-SIH] Startup column check notice:", e)
     print("[IssueRouter-SIH] DB ready.")
+
+    # 4. Optional pre-warming of full ML pipeline models during startup
+    if os.getenv("WARM_MODELS_ON_STARTUP", "false").lower() in ("1", "true", "yes"):
+        try:
+            print("[IssueRouter-SIH] Pre-warming full ML models into memory...")
+            from pipeline.orchestrator import load_all_models
+            load_all_models()
+            print("[IssueRouter-SIH] Full ML pipeline models pre-warmed successfully.")
+        except Exception as e:
+            print("[IssueRouter-SIH] Model warm-up notice:", e)
 
 # ── Health check ───────────────────────────────────────────────────────────
 @app.get("/", tags=["health"])
@@ -101,10 +129,26 @@ def home():
         "status": "active"
     }
 
-# ── Legacy ML endpoint stub ────────────────────────────────────────────────
+# ── ML complaint processing endpoint ───────────────────────────────────────
 class ComplaintRequest(BaseModel):
     text: str
+    location: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 @app.post("/api/process", tags=["pipeline"])
-def process_complaint(req: ComplaintRequest):
-    return {"error": "Legacy ML pipeline is disabled for this MVP phase. Use /api/challenges endpoint."}
+def process_complaint(req: ComplaintRequest, db: Session = Depends(get_db)):
+    """
+    Direct endpoint executing the complete IssueRouter NLP pipeline on input complaint text.
+    Invokes normaliser, zero-shot classifier, spaCy gazetteer entity extraction,
+    dense vector embedding, semantic deduplication, canonical summarization, and priority scoring.
+    """
+    from pipeline.orchestrator import process_evidence
+    payload = {
+        "source": "api_direct",
+        "raw_text": req.text,
+        "location": req.location,
+        "submitted_lat": req.lat,
+        "submitted_lng": req.lng
+    }
+    return process_evidence(payload, db)

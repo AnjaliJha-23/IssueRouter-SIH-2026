@@ -1,0 +1,2 @@
+# IssueRouter Root Requirements for Azure App Service Oryx build detection
+-r backend/requirements.txt

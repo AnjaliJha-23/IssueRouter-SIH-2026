@@ -17,7 +17,7 @@ Write-Host "[setup] Activating virtual environment..." -ForegroundColor Cyan
 
 # Install dependencies
 Write-Host "[setup] Installing backend dependencies..." -ForegroundColor Cyan
-python -m pip install fastapi uvicorn sqlalchemy pydantic python-multipart python-dotenv pyjwt
+python -m pip install fastapi uvicorn sqlalchemy pydantic python-multipart python-dotenv pyjwt transformers torch sentence-transformers spacy
 
 # Seed the database
 Write-Host "[seed] Seeding database with Jharkhand Societal Innovation Clusters..." -ForegroundColor Cyan
@@ -27,3 +27,4 @@ python seed_all.py
 Write-Host "[server] Starting FastAPI on http://localhost:8000" -ForegroundColor Green
 Write-Host "[server] API docs: http://localhost:8000/docs" -ForegroundColor Green
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+

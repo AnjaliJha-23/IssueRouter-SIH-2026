@@ -3,15 +3,20 @@ db/database.py — SQLAlchemy engine, session factory, and Base for IssueRouter.
 """
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+import os
 from pathlib import Path
 
 # Store DB file next to this directory (backend/issueRouter.db)
 DB_PATH = Path(__file__).resolve().parent.parent / "issueRouter.db"
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+DEFAULT_SQLITE_URL = f"sqlite:///{DB_PATH}"
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_SQLITE_URL)
+
+# SQLite requires check_same_thread=False; other database engines (PostgreSQL/MySQL) do not accept it
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},  # needed for SQLite + FastAPI
+    connect_args=connect_args,
     echo=False,
 )
 
