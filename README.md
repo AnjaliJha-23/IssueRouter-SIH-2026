@@ -51,12 +51,12 @@ The **IssueRouter** concept is evolved, not discarded. Its core strength—disco
               └──────────────────┬─────────────────┘
                      ▼
          ┌─────────────────────────────────────────────────┐
-         │       Unified Ingestion & Normalization         │
-         │ (BART Zero-Shot Classifier + spaCy Geo Gazette) │
+         │   Unified Ingestion & Normalization              │
+         │ (JEV Domain Classifier + spaCy Geo Gazetteer)    │
          └───────────────────────┬─────────────────────────┘
                                  ▼
          ┌─────────────────────────────────────────────────┐
-         │ Semantic Clustering & Deduplication (MiniLM-L6) │
+         │ Semantic Clustering & Deduplication (NIM Embed)  │
          │   Maps incoming evidence to Master Challenges   │
          └───────────────────────┬─────────────────────────┘
                                  ▼
@@ -137,8 +137,8 @@ It evaluates 5 targets using transparent, weighted deterministic scoring:
 ### AI & NLP Pipeline
 - **Domain Classification**: TypeSafe **JEV** (System One) decision model across 10 societal domains, with a deterministic keyword fallback and an opt-in local `facebook/bart-large-mnli` backend (`CLASSIFIER_BACKEND`)
 - **Location Extraction**: spaCy with custom EntityRuler and Jharkhand gazetteer (districts and blocks)
-- **Semantic Deduplication**: `sentence-transformers` (`all-MiniLM-L6-v2`) cosine similarity clustering
-- **Summarization & Insights**: Fast LLM inference (Groq / Hugging Face) for canonical challenge synthesis
+- **Semantic Deduplication**: NVIDIA NIM hosted embeddings (`nvidia/nemotron-3-embed-1b`, 2048-d) with cosine clustering; `EMBEDDING_BACKEND=local_minilm` keeps an offline 384-d fallback
+- **Summarization & Insights**: NVIDIA NIM chat completions (`qwen/qwen2.5-7b-instruct`) for canonical challenge synthesis, with a deterministic extractive fallback
 - **Scoring**: Weighted multi-factor deterministic algorithms for priority and routing
 
 ---

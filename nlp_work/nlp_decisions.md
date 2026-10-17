@@ -43,6 +43,16 @@ This file documents all architectural decisions, design contracts, threshold tun
   - Added `pipeline/jev_client.py` (httpx client, retry on 429/529) and the JEV rubrics `DOMAIN_CRITERIA` / `SEVERITY_LEVELS` in `config.py`.
 - **Impact:** Frees ~1.6 GB of RAM and removes torch/transformers from the default import path. Return contract unchanged, so `orchestrator.py` is untouched. Any API failure or missing key falls back to the lexicon, so the pipeline never hard-fails on the decision model.
 
+#### 7. Hosted embeddings and summarization on NVIDIA NIM (`backend/pipeline/nvidia_embed.py`, `backend/pipeline/nvidia_llm.py`)
+- **Motivation:** `sentence-transformers` pulled `torch` + `transformers` into every process just to produce dedup vectors — hundreds of MB of dependencies and resident RAM on a 1.75 GB instance. Summarization was also tied to a single provider.
+- **Change:**
+  - `embeddings.py`: introduced `EMBEDDING_BACKEND` (`api` | `local_minilm`, default `api`). The `api` backend calls NVIDIA NIM `POST /v1/embeddings` with `nvidia/nemotron-3-embed-1b` (2048-d, `input_type=passage`); `local_minilm` keeps the offline 384-d model as an optional dev extra. `EMBEDDING_DIM` is derived from the model rather than read from env, and `get_embedding()` returns `None` instead of raising when no backend can serve a vector, so dedup degrades to `new_challenge` instead of failing a submission.
+  - **Dimension versioning:** vectors are tagged `<model>:<dimension>` in the new `challenge_evidence.embedding_model` column (added by the startup migration). A stored vector from a different model is never compared; `orchestrator.py` re-embeds it once and persists the result (capped at 25 per request) so pre-existing rows rejoin dedup. The `api` backend deliberately does **not** fall back to the local model — mixing 2048-d and 384-d vectors in one comparison set would silently corrupt every score.
+  - `deduplication.py`: cosine similarity is a NumPy dot product of L2-normalised unit vectors; `scikit-learn` is gone. Thresholds are unchanged.
+  - `summarization.py` + `nvidia_llm.py`: introduced `SUMMARIZATION_BACKEND` (`nvidia` | `groq` | `extractive`, default `nvidia`), calling NIM `POST /chat/completions` with `qwen/qwen2.5-7b-instruct` (`config.SUMMARIZATION_MODEL`, overridable via `NVIDIA_MODEL`). The deterministic extractive fallback still guards every failure path, and `generate_summary()` now reports which backend served the summary.
+  - `requirements.txt`: dropped `torch`, `transformers`, `sentence-transformers`, `scikit-learn`, `scipy`, `huggingface-hub`, `tokenizers` and `groq`; all are now documented optional local-dev extras.
+- **Impact:** the default deployment ships no model weights and no torch runtime, and `analysis.model_versions` records the backend that actually served each stage (including `"extractive"`, and `null` embeddings when no vector was produced).
+
 ---
 
 ## 🏛️ Pipeline Module Architectural Reference
@@ -51,10 +61,10 @@ This file documents all architectural decisions, design contracts, threshold tun
 |---|---|---|---|
 | `classification.py` | Top-level domain & subdomain classification | TypeSafe **JEV** (System One) via `CLASSIFIER_BACKEND=jev`, with a deterministic keyword-lexicon fallback (`transformers` keeps local BART) | `DOMAINS` (10 categories), `SUBDOMAIN_MAP`, `DOMAIN_CRITERIA` |
 | `location_extraction.py` | 24 Jharkhand districts & block resolution | spaCy `EntityRuler` + `jharkhand_gazetteer.json` | Exact, Substring, Coords fallback |
-| `embeddings.py` | 384-dimensional dense semantic vectors | `sentence-transformers/all-MiniLM-L6-v2` | `[Domain] Cleaned_Text` |
-| `deduplication.py` | Filter by `(domain, district)` + Cosine similarity clustering | `scikit-learn` Cosine Similarity | `auto_link` (≥0.80), `flag_related` (0.60–0.79), `new_challenge` (<0.60) |
+| `embeddings.py` | Dense semantic vectors | `EMBEDDING_BACKEND=api` → NVIDIA NIM `nvidia/nemotron-3-embed-1b` (2048-d); `local_minilm` → offline `all-MiniLM-L6-v2` (384-d) | `[Domain] Cleaned_Text`, tag stored as `<model>:<dim>` |
+| `deduplication.py` | Filter by `(domain, district)` + cosine similarity clustering | NumPy dot product of L2-normalised vectors | `auto_link` (≥0.80), `flag_related` (0.60–0.79), `new_challenge` (<0.60) |
 | `priority_scoring.py` | Explainable 0–100 priority calculation | Weighted Severity (30%), Volume (25%), Conf (25%), Trend (20%) | `DOMAIN_SEVERITY`, `TREND_MULTIPLIERS` |
-| `summarization.py` | Canonical title & problem statement generation | Groq Compound-Mini LLM with Extractive Fallback | `{"title": str, "description": str}` |
+| `summarization.py` | Canonical title & problem statement generation | `SUMMARIZATION_BACKEND=nvidia` → NIM `qwen/qwen2.5-7b-instruct`; `groq` legacy; `extractive` offline | `{"title": str, "description": str, "model": str}` |
 | `router.py` | Department routing with municipality overrides | Rule-based mapping with city overrides | `CATEGORY_TO_DEPARTMENT`, `CITY_OVERRIDES` |
 | `orchestrator.py` | End-to-end multi-stage pipeline executor | SQLAlchemy DB persistence to `Challenge`, `ChallengeEvidence`, `ChallengeAnalysis`, `ChallengeRelation` | `process_evidence(data, db)` |
 

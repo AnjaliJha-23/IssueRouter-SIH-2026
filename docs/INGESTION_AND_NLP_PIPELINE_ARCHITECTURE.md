@@ -46,7 +46,7 @@ The **Ingestion & NLP Pipeline** is the intelligence gateway of **IssueRouter**.
                                       v
                  +------------------------------------------+
                  | 4. DENSE SEMANTIC EMBEDDINGS (get_embed) |
-                 | - Model: all-MiniLM-L6-v2 (384 dims)     |
+                 | - Model: NVIDIA NIM (2048 dims)          |
                  | - Prefixes domain context: [Domain] Text |
                  +------------------------------------------+
                                       |
@@ -73,7 +73,7 @@ The **Ingestion & NLP Pipeline** is the intelligence gateway of **IssueRouter**.
                                       v
                  +------------------------------------------+
                  | 6. MULTI-EVIDENCE LLM SUMMARIZATION      |
-                 | - Model: groq/compound-mini              |
+                 | - Model: qwen2.5-7b-instruct (NIM)       |
                  | - Generates canonical Title (<=10 words) |
                  |   and Description (<=30 words)           |
                  | - Zero-downtime extractive fallback      |
@@ -127,9 +127,9 @@ Before diving into the pipeline internals, here is how the Ingestion & NLP layer
  |                           2. NLP & AI INTELLIGENCE PIPELINE                     |
  | - Classification: TypeSafe JEV (10 Domains + Subdomains)                     |
  | - Spatial NER: spaCy EntityRuler + Jharkhand Gazetteer + Lat/Lng Fallback       |
- | - Embeddings: sentence-transformers/all-MiniLM-L6-v2 (384-dimensional)          |
+ | - Embeddings: NVIDIA NIM nemotron-3-embed-1b (2048-dimensional)                 |
  | - Deduplication: Partitioned Cosine Similarity (Auto-Link / Flag / New)         |
- | - Summarization: groq/compound-mini + Extractive Fallback                 |
+ | - Summarization: NVIDIA NIM qwen2.5-7b-instruct + Extractive Fallback     |
  | - Priority Scoring: Explainable 4-Factor Linear Model (0-100)                   |
  | - Smart Routing: Category to Department Mapping + City Overrides                |
  +---------------------------------------------------------------------------------+
@@ -157,10 +157,10 @@ Before diving into the pipeline internals, here is how the Ingestion & NLP layer
 | Layer | Technology | Role in System |
 |---|---|---|
 | **Ingestion Engine** | Python 3.12, Tweepy, Regex | Stream ingestion, polling, text sanitization |
-| **NLP & Deep Learning** | PyTorch, Hugging Face Transformers, `sentence-transformers` | Zero-shot inference, dense embeddings |
+| **NLP & Deep Learning** | Hosted NVIDIA NIM embeddings, TypeSafe JEV decision model | Remote dense embeddings, domain inference (no local model weights) |
 | **Information Extraction** | spaCy v3, Custom Rule-based EntityRuler | Spatial Named Entity Recognition (NER), Gazetteer resolution |
-| **Deduplication / Math** | Scikit-Learn, NumPy | High-speed vectorized cosine similarity, matrix operations |
-| **Generative AI** | Groq SDK (`groq/compound-mini`) | Canonical issue synthesis, incremental summarization |
+| **Deduplication / Math** | NumPy | High-speed vectorized cosine similarity (dot product of L2-normalised unit vectors) |
+| **Generative AI** | NVIDIA NIM chat completions (`qwen/qwen2.5-7b-instruct`) | Canonical issue synthesis, incremental summarization |
 | **Backend & APIs** | FastAPI, Pydantic v2, Uvicorn | Async REST APIs, WebSockets, lifecycle management |
 | **Data Persistence** | SQLAlchemy 2.0, SQLite (Dev) / PostgreSQL (Prod) | Relational schema with foreign keys and embedded JSON vectors |
 | **Frontend UI** | Next.js 14, React, TailwindCSS, Lucide Icons | Real-time map dashboard, university/industry portal, admin panels |
@@ -339,26 +339,26 @@ Extracts administrative boundaries (Districts and Blocks across all 24 districts
 
 ### Stage 4: Dense Semantic Vector Embeddings
 
-- **Files:** `backend/pipeline/embeddings.py`
-- **Model:** `sentence-transformers/all-MiniLM-L6-v2`
-- **Vector Dimension:** 384-dimensional dense float32 array
+- **Files:** `backend/pipeline/embeddings.py`, `backend/pipeline/nvidia_embed.py`
+- **Model:** Hosted NVIDIA NIM `nvidia/nemotron-3-embed-1b` by default (`EMBEDDING_BACKEND=api`); `EMBEDDING_BACKEND=local_minilm` opts into local `sentence-transformers/all-MiniLM-L6-v2`
+- **Vector Dimension:** 2048-dimensional dense vector (384 under `local_minilm`)
 - **Module Function:** `get_embedding(text: str) -> list[float]`
 
 #### What it does
-Converts variable-length text into a dense 384-dimensional semantic representation vector where semantically similar civic complaints occupy proximate coordinates in vector space.
+Converts variable-length text into a dense 2048-dimensional semantic representation vector where semantically similar civic complaints occupy proximate coordinates in vector space.
 
 #### How it works
 Before embedding, domain context is prepended to the normalized text to anchor the embedding in the domain cluster:
 ```python
 embed_text = f"[{domain}] {clean_txt}"
-embedding = get_embedding(embed_text)  # Returns list of 384 floats
+embedding = get_embedding(embed_text)  # Returns list of 2048 floats
 ```
 
 #### Why this decision?
-- **Model Selection (`all-MiniLM-L6-v2`):**
-  - **Latency:** ~15ms per inference on modern CPUs (no GPU required).
-  - **Memory:** Lightweight (~80MB model size), making it ideal for scalable microservices.
-  - **Semantic Quality:** Outperforms standard word2vec/TF-IDF by capturing complex semantic equivalence (e.g., *"no water in tap"* is equivalent to *"drinking water supply disrupted"*).
+- **Hosted Model Selection (`nvidia/nemotron-3-embed-1b` via NVIDIA NIM):**
+  - **No Local Weights:** The default `api` backend serves 2048-dim embeddings from `POST /v1/embeddings` and indexes content with `input_type="passage"`, so the host loads no embedding model.
+  - **Offline Alternative:** `EMBEDDING_BACKEND=local_minilm` opts into local `sentence-transformers/all-MiniLM-L6-v2` (~80MB, 384-dim) for development without network access.
+  - **Semantic Quality:** Captures complex semantic equivalence (e.g., *"no water in tap"* is equivalent to *"drinking water supply disrupted"*).
 - **Domain Prefixing (`[Healthcare] ...`):** Prepending the classified domain prevents false semantic bridges across dissimilar domains that use overlapping vocabulary (e.g., *"power cut in hospital"* vs *"power cut in residential market"*).
 
 ---
@@ -370,7 +370,7 @@ embedding = get_embedding(embed_text)  # Returns list of 384 floats
 - **Module Function:** `resolve(new_embedding, new_domain, new_district, candidate_challenges) -> dict`
 
 ```text
-                     New Evidence Embedding Vector (384-dim)
+                     New Evidence Embedding Vector (2048-dim)
                                        |
                                        v
              +---------------------------------------------------+
@@ -399,7 +399,7 @@ embedding = get_embedding(embed_text)  # Returns list of 384 floats
 ```
 
 #### Mathematical Formulation
-Given new evidence embedding $\vec{u} \in \mathbb{R}^{384}$ and canonical challenge embedding $\vec{v} \in \mathbb{R}^{384}$:
+Given new evidence embedding $\vec{u} \in \mathbb{R}^{2048}$ and canonical challenge embedding $\vec{v} \in \mathbb{R}^{2048}$:
 
 $$\text{Cosine Similarity}(\vec{u}, \vec{v}) = \frac{\vec{u} \cdot \vec{v}}{\|\vec{u}\|_2 \|\vec{v}\|_2}$$
 
@@ -442,7 +442,7 @@ The master state machine that   coordinates Stages 1 through 9 inside an atomic 
  [ 3. extract_entities() ] -------> District + Block + GPS Coords
            |
            v
- [ 4. get_embedding() ] ----------> 384-dim Dense Vector '[Domain] Text'
+ [ 4. get_embedding() ] ----------> 2048-dim Dense Vector '[Domain] Text'
            |
            v
  [ 5. resolve() ] ----------------> Action: 'link' | 'flag_related' | 'new_challenge'
@@ -515,8 +515,8 @@ The master state machine that   coordinates Stages 1 through 9 inside an atomic 
 
 ### Stage 7: Incremental Multi-Evidence Summarization
 
-- **Files:** `backend/pipeline/summarization.py`
-- **LLM Engine:** Groq API (`groq/compound-mini`, configurable via `GROQ_MODEL`) with Extractive Fallback
+- **Files:** `backend/pipeline/summarization.py`, `backend/pipeline/nvidia_llm.py`, `backend/pipeline/config.py`
+- **LLM Engine:** NVIDIA NIM chat completions (`qwen/qwen2.5-7b-instruct`, `SUMMARIZATION_BACKEND=nvidia`; model from `config.SUMMARIZATION_MODEL`, overridable via `NVIDIA_MODEL`) with Extractive Fallback. `SUMMARIZATION_BACKEND=groq` (legacy, requires `pip install groq`) and `SUMMARIZATION_BACKEND=extractive` (offline) remain selectable.
 - **Module Function:** `generate_summary(existing_summary, new_evidence_text, domain, location) -> dict`
 
 #### What it does
@@ -536,7 +536,7 @@ New Evidence: {combined_clean_text}
 ```
 
 #### Resilient Extractive Fallback Engine
-If the Groq API key is missing, rate-limited (HTTP 429), or experiencing network timeout, the system executes deterministic extractive synthesis:
+If the provider API key is missing, the call is rate-limited (HTTP 429) or otherwise fails, or the reply is not parsable JSON, the system executes deterministic extractive synthesis:
 ```python
 fallback_title = f"{domain} Issue in {location}" if location else f"{domain} Issue"
 fallback_desc = (combined_text[:147] + "...") if len(combined_text) > 150 else combined_text
@@ -636,11 +636,11 @@ Maps the classified domain and resolved geographical location to the exact nodal
 
 | Technical Decision | Alternatives Considered | Why This Decision Was Chosen |
 |---|---|---|
-| **Zero-Shot NLI (`BART-MNLI`)** | Fine-tuned BERT / RoBERTa classifier | Eliminates need for thousands of manually labeled civic datasets; enables instant addition of new categories in `config.py`. |
+| **Hosted Decision Model (`JEV` / TypeSafe)** | Fine-tuned BERT / RoBERTa classifier; local zero-shot `BART-MNLI` | Eliminates need for thousands of manually labeled civic datasets; enables instant addition of new categories in `config.py`, with no local model weights to load or retrain. |
 | **Gazetteer `EntityRuler` + Fallback** | General NER (`en_core_web_sm`), LLM extraction | Pre-trained NER fails completely on Indian regional districts/blocks; Gazetteer guarantees 100% deterministic precision on Jharkhand administrative names. |
 | **Domain-District Partitioned Cosine Search** | Global Flat FAISS / Milvus vector search | Civic issues are strictly localized. Filtering by `(domain, district)` prunes search space by 95%+, eliminates cross-domain false positives, and executes in $<2\text{ms}$ on SQLite/PostgreSQL without heavy vector DB infrastructure. |
 | **4-Factor Weighted Linear Priority Model** | Neural ranking network | Public governance requires explainability. Every priority score must provide an interpretable audit string (severity, volume, confidence, trend) for administrative accountability. |
-| **Lazy Loading in Pipeline Init** | Eager module loading | Loading PyTorch, Hugging Face transformers, and sentence-transformers at top-level import froze unit test startup and CLI scripts. Lazy loading ensures submodules import in $<50\text{ms}$. |
+| **Lazy Loading in Pipeline Init** | Eager module loading | Importing heavyweight local model stacks (PyTorch, Hugging Face transformers, sentence-transformers) at top level froze unit test startup and CLI scripts. Nothing local is loaded by default — classification, embeddings, and summarization are hosted calls, and only spaCy (`en_core_web_sm`) is loaded for NER — so submodules import in $<50\text{ms}$. |
 | **Multi-Evidence LLM Synthesis with Extractive Fallback** | Pure LLM generation OR pure text truncation | Combines high-quality natural language canonical summaries with zero-downtime robustness during third-party LLM API limits or network drops. |
 
 ---
@@ -673,7 +673,7 @@ To illustrate the pipeline in action, consider incoming raw social evidence:
 
 ### 5. Embedding Output (`get_embedding`)
 - Input: `"[Energy] Severe power failure and low voltage in Namkum area..."`
-- Output: `[0.0421, -0.0189, 0.0812, ...]` (384-dimensional float vector)
+- Output: `[0.0421, -0.0189, 0.0812, ...]` (2048-dimensional float vector)
 
 ### 6. Deduplication Resolution (`resolve`)
 - Candidates queried: All Challenges where `domain == 'Energy'` and `district == 'Ranchi'`.

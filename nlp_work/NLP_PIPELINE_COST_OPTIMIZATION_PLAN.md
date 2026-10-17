@@ -51,16 +51,16 @@ Everything heavy runs in **one Gunicorn worker** — `startup.sh` forces `WORKER
 
 `backend/pipeline/summarization.py` has **no import statements** and calls an **undefined `get_client()`** at line 28 — *outside* the `try` block. Every code path that reaches `process_evidence()` (i.e. `POST /api/challenges/`, `/ingest`, `/api/process`, and `POST /{id}/analyze`) will raise `NameError`. This must be repaired before any optimization work.
 
-### 1.2 Model naming — standardized on Groq Compound Mini ✅ (resolved)
+### 1.2 Model naming — standardized on NVIDIA NIM ✅ (resolved; provider changed)
 
-The summarization model is now **`groq/compound-mini`** everywhere, with `pipeline/config.py` as the single source of truth:
+Summarization now runs on **NVIDIA NIM** (`qwen/qwen2.5-7b-instruct`), still with `pipeline/config.py` as the single source of truth:
 
-- `pipeline/config.py` → `SUMMARIZATION_MODEL = "groq/compound-mini"`
-- `backend/.env.example` → `GROQ_MODEL=groq/compound-mini`
-- `pipeline/summarization.py` → `os.getenv("GROQ_MODEL", SUMMARIZATION_MODEL)` (no hard-coded default)
-- `pipeline/orchestrator.py` and `backend/seed_mock_data.py` → already record `"groq/compound-mini"`.
+- `pipeline/config.py` → `SUMMARIZATION_MODEL = "qwen/qwen2.5-7b-instruct"`
+- `backend/.env.example` → `NVIDIA_MODEL=qwen/qwen2.5-7b-instruct`
+- `pipeline/summarization.py` → `os.getenv("NVIDIA_MODEL", SUMMARIZATION_MODEL)` (no hard-coded default)
+- `pipeline/orchestrator.py` and `backend/seed_mock_data.py` → record the effective model via `summarization.active_model()`.
 
-There is no longer any `gpt-oss` reference in the project. (Note: `summarization.py` still needs the Sector G1 repair — missing `import os` / `import json` and the undefined `get_client()` — before this model is actually invoked.)
+`SUMMARIZATION_BACKEND` (`nvidia` | `groq` | `extractive`, default `nvidia`) selects the provider, and the deterministic extractive fallback is unchanged. There is no `gpt-oss` reference in the project.
 
 ---
 
@@ -78,19 +78,14 @@ Design caveats, all honoured in the implementation:
 - **Cost scales with volume.** The mock feed replays every ~8 s and `backend/run_large_scale_simulation.py` processes many items → cache by text hash and skip the LLM for obvious cases.
 - **Latency budget.** The frontend Axios client uses a 15 s timeout (`frontend/src/api/client.js`), so the LLM stage must stay well under it — or move processing to a background task (Sector C).
 
-### 2.2 Use NVIDIA NIM embeddings instead of sentence-transformers — ✅ feasible, with one important correction
+### 2.2 Use NVIDIA NIM embeddings instead of sentence-transformers — ✅ shipped
 
-- "NVIDIA NIM" is the *container/runtime*. **Self-hosting NIM requires a GPU**, which would **increase** cost. The cost-reducing form is the **hosted** endpoint: the NVIDIA API catalog (`build.nvidia.com`) or **NVIDIA models served via Azure AI Foundry serverless**.
-- Real model IDs to target:
-  - `nvidia/nv-embedqa-e5-v5` — **1024-d**
-  - `nvidia/llama-3.2-nv-embedqa-1b-v2` — 2048-d
-  - `nvidia/nv-embed-v1` — 4096-d
-- **These are not 384-d.** Switching requires **re-embedding stored evidence** and a **versioned embedding dimension** — otherwise cosine similarity silently produces nonsense because `ChallengeEvidence.embedding_json` stores raw float lists.
-- **Cheaper/simpler alternatives worth weighing:**
-  - Azure OpenAI `text-embedding-3-small` (1536-d, ~$0.02/1M tokens).
-  - **Local ONNX / fastembed MiniLM** (~40–90 MB, **no torch**) — stays offline, no per-call cost, still removes the torch dependency.
+- "NVIDIA NIM" is the *container/runtime*. **Self-hosting NIM requires a GPU**, which would **increase** cost. The cost-reducing form is the **hosted** endpoint, and that is what shipped: `POST https://integrate.api.nvidia.com/v1/embeddings`.
+- **Model chosen:** `nvidia/nemotron-3-embed-1b` — **2048-d**, 4096-token window, and it requires an explicit `input_type` (`passage` for stored evidence). `nvidia/nv-embedqa-e5-v5` (1024-d) and `nvidia/llama-3.2-nv-embedqa-1b-v2` (2048-d) remain drop-in alternatives via `NVIDIA_EMBED_MODEL`.
+- **These are not 384-d,** so switching required **re-embedding stored evidence** and a **versioned embedding dimension** — both shipped: `challenge_evidence.embedding_model` stores `<model>:<dimension>`, mismatched rows are re-embedded lazily (capped at 25 per request), and shape-mismatched vectors are never compared.
+- **Cheaper/simpler alternative kept available:** `EMBEDDING_BACKEND=local_minilm` restores the offline `all-MiniLM-L6-v2` (384-d). It is no longer installed by `requirements.txt`, so it is an opt-in dev extra.
 
-> **Key insight:** you only get the real win — deleting `torch`/`transformers`/`sentence-transformers` and shrinking the image — by replacing **both** BART *and* MiniLM. Replacing just the embedder while keeping BART leaves torch loaded and saves almost nothing.
+> **Key insight:** you only get the real win — deleting `torch`/`transformers`/`sentence-transformers` and shrinking the image — by replacing **both** BART *and* MiniLM. That is now done: A1 + A2 shipped, and A3 removed the packages.
 
 ---
 
@@ -103,8 +98,8 @@ Each item lists **what → where → impact → effort → risk**.
 | ID | Change | Files | Impact | Effort | Risk |
 |---|---|---|---|---|---|
 | **A1** | ✅ **Shipped.** `CLASSIFIER_BACKEND=jev\|transformers\|keyword` (default `jev`). The `jev` backend asks TypeSafe System One for domain (`Choice`) + severity (`Score`) + urgency (`Noul`) with a gated second call for subdomain; `keyword` is the deterministic offline fallback; `transformers` is the opt-in legacy BART. Return contract unchanged, `orchestrator.py` untouched. New: `pipeline/jev_client.py`, `pipeline/keyword_classifier.py`. | `pipeline/classification.py`, `pipeline/config.py` | Removes ~1.6 GB RAM; 2 local passes → 1–2 hosted calls | M | Low (auto-fallback to keyword) |
-| **A2** | Add `APIEmbedder` behind `EMBEDDING_BACKEND=api\|local_onnx\|local_minilm`, returning a fixed `EMBEDDING_DIM`. Add a **dimension-versioned embedding** and re-embed on mismatch. | `pipeline/embeddings.py`, `db/models.py` | Removes ~90 MB + torch | M | Med (dimension migration) |
-| **A3** | Once A1+A2 are default, **drop `torch`, `transformers`, `sentence-transformers`, `scikit-learn`, `scipy`** from requirements; replace sklearn `cosine_similarity` with a NumPy dot of normalized vectors. | `backend/requirements.txt`, `pipeline/deduplication.py` | Image ~2.5–3 GB → ~300–500 MB; frees RAM | S | Low |
+| **A2** | ✅ **Shipped.** `EMBEDDING_BACKEND=api\|local_minilm` (default `api`), with `EMBEDDING_DIM` derived from the model. The `api` backend calls NVIDIA NIM `nvidia/nemotron-3-embed-1b` (2048-d); `local_minilm` keeps the offline 384-d model as an optional extra. **Dimension-versioned embeddings** shipped: `challenge_evidence.embedding_model` stores `<model>:<dim>`, mismatches are re-embedded lazily, and cross-dimension comparisons are skipped. New: `pipeline/nvidia_embed.py`. | `pipeline/embeddings.py`, `pipeline/deduplication.py`, `db/models.py`, `pipeline/orchestrator.py` | Removes ~90 MB + torch from the process | M | Med (dimension migration — handled) |
+| **A3** | ✅ **Shipped.** `torch`, `transformers`, `sentence-transformers`, `scikit-learn`, `scipy` (plus `huggingface-hub`, `tokenizers`, `groq`) dropped from requirements; sklearn `cosine_similarity` replaced by a NumPy dot of normalised vectors. | `backend/requirements.txt`, `pipeline/deduplication.py` | Image ~2.5–3 GB → ~300–500 MB; frees RAM | S | Low |
 | **A4** | Replace spaCy NER with a pure-Python gazetteer matcher (dict/regex) from the existing gazetteer JSON. NER is already fully rule-based → behaviour-preserving. `NER_BACKEND=spacy\|regex`. | `pipeline/location_extraction.py`, `pipeline/data/jharkhand_gazetteer.json` | Removes ~50–100 MB + load time | S | Low |
 | **A5** | If a local classifier fallback is required, use a distilled/ONNX model (`valhalla/distilbart-mnli-12-3` or an ONNX MiniLM) — **never** full `bart-large-mnli` on B1. | `pipeline/classification.py` | Keeps a local fallback viable | S | Low |
 
@@ -165,36 +160,36 @@ JEV_MODEL=jev-latest                   # TypeSafe System One model id
 TYPESAFE_API_KEY=                      # https://console.typesafe.ai/keys
 CLASSIFICATION_MODEL=facebook/bart-large-mnli   # only used when CLASSIFIER_BACKEND=transformers
 
-# Embeddings
-EMBEDDING_BACKEND=api                  # api | local_onnx | local_minilm
-EMBEDDING_MODEL=nvidia/nv-embedqa-e5-v5        # or text-embedding-3-small
-EMBEDDING_DIM=1024
+# Embeddings + summarization  (✅ shipped; see backend/.env.example)
+NVIDIA_API_KEY=                        # https://build.nvidia.com/ (nvapi-…)
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 
-# NER
-NER_BACKEND=regex                      # regex | spacy
+EMBEDDING_BACKEND=api                  # api | local_minilm
+NVIDIA_EMBED_MODEL=nvidia/nemotron-3-embed-1b   # 2048-d
 
-# Provider credentials
-LLM_API_BASE=
-LLM_API_KEY=
-EMBEDDING_API_BASE=
-EMBEDDING_API_KEY=
+SUMMARIZATION_BACKEND=nvidia           # nvidia | groq | extractive
+NVIDIA_MODEL=qwen/qwen2.5-7b-instruct
 
-# Behaviour
-ENABLE_EMBEDDING_CACHE=true
-PIPELINE_ASYNC=true
+# NER  (A4 — not yet shipped; spaCy is the last in-process model)
+NER_BACKEND=spacy                      # spacy | regex
+
+# Behaviour  (C1/C2 — not yet shipped)
+ENABLE_EMBEDDING_CACHE=false
+PIPELINE_ASYNC=false
 ```
 
 ---
 
 ## 5. Recommended sequence (quick wins first)
 
-1. **G1–G3** — fix the broken summarizer + model-name drift (unblocks the app).
-2. **B2 / A3 (partial)** — swap to the CPU torch wheel immediately (stops multi-GB CUDA builds on the next deploy).
-3. **A1 ✅ + A2** — JEV classifier shipped and validated on 10 Hinglish samples (10/10 correct); the hosted embedder behind a flag is next.
-4. **A3 + A4** — remove torch/transformers/sentence-transformers/sklearn/spaCy; replace with NumPy + regex.
-5. **C1 + C2** — async + caching.
-6. **B1** — evaluate Container Apps scale-to-zero vs keeping B1.
-7. **D1–D6 / E / F** — efficiency, correctness, guardrails.
+1. **G1–G3** — fix the broken summarizer + model-name drift (unblocks the app). ✅
+2. **B2 / A3 (partial)** — CPU torch wheel, to stop multi-GB CUDA builds. ✅ superseded: A3 removed torch entirely.
+3. **A1 ✅ + A2 ✅** — JEV classifier shipped and validated on 10 Hinglish samples (10/10 correct); hosted embeddings shipped with dimension versioning.
+4. **A3 ✅** — `torch`/`transformers`/`sentence-transformers`/`scikit-learn`/`scipy` removed from requirements; dedup is a NumPy dot.
+5. **A4** — replace spaCy NER with a pure-Python gazetteer matcher (outstanding; spaCy is the last in-process model).
+6. **C1 + C2** — async + caching.
+7. **B1** — evaluate Container Apps scale-to-zero vs keeping B1.
+8. **D1–D6 / E / F** — efficiency, correctness, guardrails.
 
 ---
 
@@ -210,6 +205,8 @@ PIPELINE_ASYNC=true
 | Cold start | 60–120 s+ | 2–10 s |
 | Classification / request | 2 local BART passes (seconds, blocks 1 vCPU) | 1–2 JEV calls (≈1–4 s observed; falls back to the offline lexicon) |
 | Net effect | Pinned to B1+ because of RAM | Fits B1 comfortably; can scale to zero |
+
+> **Update:** with A1–A3 shipped, the *Deploy image*, *Resident RAM* and *Classification / request* rows already sit at the lean target. The remaining gap is hosting (B1) and cold start.
 
 ---
 

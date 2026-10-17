@@ -38,7 +38,7 @@ Every member is assigned to exactly one of these four branches for their current
 | `frontend` | _fill in_ | React/Vite portals (citizen, university, industry, government), shared UI components |
 | `backend` | _fill in_ | FastAPI API modules, data model, RBAC, notifications, deployment |
 | `ingestion` | _fill in_ | Citizen submission form/API, photo/file handling, Jharkhand district and block gazetteer |
-| `nlp-pipeline` | _fill in_ | BART zero-shot classification, sentence-transformers dedup, priority scoring, discipline-tag matching |
+| `nlp-pipeline` | _fill in_ | JEV + keyword classification, hosted NVIDIA NIM embeddings and dedup, priority scoring, discipline-tag matching |
 
 Two or more people can share a module branch. When they do, they push sequentially (pull before you push, every time — see Section 4) rather than in parallel to avoid stepping on each other.
 
