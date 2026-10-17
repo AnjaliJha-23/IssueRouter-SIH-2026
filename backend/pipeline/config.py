@@ -60,7 +60,14 @@ SEVERITY_LEVELS = [
 # Summarization / External LLM Configuration
 # Single source of truth for the canonical-summary model. Overridable at runtime
 # via the NVIDIA_MODEL environment variable (SUMMARIZATION_BACKEND=nvidia).
-SUMMARIZATION_MODEL = "qwen/qwen2.5-7b-instruct"
+#
+# The model must exist in the NIM catalog. NVIDIA retires models from
+# integrate.api.nvidia.com without warning and an unknown ID returns a bare
+# "404 page not found", which silently degrades summarization to the extractive
+# fallback. Confirm any change with:
+#   curl -s https://integrate.api.nvidia.com/v1/models/nvidia/nemotron-3.5-lightning-30b-a3b
+# A retired model answers 410 Gone; an unknown one answers 404.
+SUMMARIZATION_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 
 # Deduplication / Clustering Configuration
 DEDUP_THRESHOLDS = {
