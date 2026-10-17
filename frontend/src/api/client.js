@@ -4,8 +4,15 @@
  */
 import axios from 'axios'
 
+// Respect VITE_API_URL when deploying against separate backend hosts (e.g. Azure App Service / Vercel)
+// In local development or single-host deployments, defaults to relative '/api'
+const rawApiUrl = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) || ''
+const apiBase = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl
+export const API_BASE_URL = apiBase
+export const API_PREFIX = apiBase ? `${apiBase}/api` : '/api'
+
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: API_PREFIX,
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
 })
@@ -51,13 +58,12 @@ export async function authFetch(inputUrl, options = {}) {
     const res = await fetch(inputUrl, { ...options, headers })
     return res
   } catch (err) {
-    if (inputUrl.startsWith('http://localhost:8000/api/')) {
-      const relativeUrl = inputUrl.replace('http://localhost:8000', '')
-      return fetch(relativeUrl, { ...options, headers })
+    if (API_BASE_URL && inputUrl.startsWith('/api/')) {
+      const remoteUrl = `${API_BASE_URL}${inputUrl}`
+      return fetch(remoteUrl, { ...options, headers })
     }
-    if (inputUrl.startsWith('/api/')) {
-      const directUrl = `http://localhost:8000${inputUrl}`
-      return fetch(directUrl, { ...options, headers })
+    if (!API_BASE_URL && inputUrl.startsWith('/api/')) {
+      return fetch(inputUrl, { ...options, headers })
     }
     throw err
   }

@@ -4,6 +4,7 @@ Covers all 24 districts, 12 canonical domains, research-grade problem definition
 complete University project lifecycle, industry CSR proposals, and photo evidence.
 """
 import sys
+import os
 import uuid
 import json
 import random
@@ -27,6 +28,9 @@ from db.models import (
     Project,
     Proposal,
 )
+
+from pipeline.embeddings import embedding_tag
+from pipeline.summarization import active_model
 
 
 random.seed(42)
@@ -862,9 +866,9 @@ def seed():
                 trend=ch.trend or "rising",
                 explanation=f"Zero-shot classification identified {ch.domain} ({ch.department}) with high confidence. Priority computed from {ch.complaint_count} cross-verified civic signals.",
                 model_versions={
-                    "classification": "facebook/bart-large-mnli",
-                    "embeddings": "sentence-transformers/all-MiniLM-L6-v2",
-                    "summarization": "groq/compound-mini"
+                    "classification": os.getenv("JEV_MODEL", "jev-latest"),
+                    "embeddings": embedding_tag(),
+                    "summarization": active_model()
                 },
                 updated_at=ch.created_at
             ))

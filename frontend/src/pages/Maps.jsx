@@ -294,9 +294,8 @@ export default function Maps() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch('/api/challenges/').catch(() =>
-          fetch('http://localhost:8000/api/challenges/')
-        )
+        const apiBase = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : ''
+        const res = await fetch(apiBase ? `${apiBase}/api/challenges/` : '/api/challenges/')
         if (res && res.ok) {
           const data = await res.json()
           if (isMounted) {

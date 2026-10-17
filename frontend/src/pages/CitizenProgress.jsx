@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getMediaUrl } from '../api/client'
+import { authFetch, getMediaUrl } from '../api/client'
 import {
   TrendingUp,
   MapPin,
@@ -123,15 +123,7 @@ export default function CitizenProgress() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/challenges/my', {
-        headers: {
-          ...getAuthHeaders()
-        }
-      }).catch(() =>
-        fetch('http://localhost:8000/api/challenges/my', {
-          headers: { ...getAuthHeaders() }
-        })
-      )
+      const res = await authFetch('/api/challenges/my')
 
       if (res && res.ok) {
         const data = await res.json()
@@ -297,10 +289,10 @@ export default function CitizenProgress() {
             const currentStageIdx = getStageIndex(item.status)
             const createdDate = item.created_at
               ? new Date(item.created_at).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric'
-                })
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+              })
               : 'Recently'
 
             const photosCount = item.media_urls?.length || 0
@@ -379,13 +371,12 @@ export default function CitizenProgress() {
                         <div
                           key={stg.key}
                           title={`${stg.label}: ${stg.desc}`}
-                          className={`h-2 rounded-full transition-all duration-300 ${
-                            isPast
+                          className={`h-2 rounded-full transition-all duration-300 ${isPast
                               ? 'bg-emerald-500'
                               : isCurrent
-                              ? 'bg-blue-600 ring-2 ring-blue-300 dark:ring-blue-900/60 animate-pulse'
-                              : 'bg-slate-200 dark:bg-neutral-800'
-                          }`}
+                                ? 'bg-blue-600 ring-2 ring-blue-300 dark:ring-blue-900/60 animate-pulse'
+                                : 'bg-slate-200 dark:bg-neutral-800'
+                            }`}
                         />
                       )
                     })}
@@ -486,13 +477,14 @@ export default function CitizenProgress() {
                       onClick={() => setLightboxPhoto(url)}
                       className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-neutral-700 bg-slate-100 dark:bg-neutral-800 cursor-pointer group shadow-xs"
                     >
-                      <img 
-                        src={getMediaUrl(url)} 
-                        alt={`Evidence ${i + 1}`} 
-                        className="w-full h-full object-cover" 
+                      <img
+                        src={getMediaUrl(url)}
+                        alt={`Evidence ${i + 1}`}
+                        className="w-full h-full object-cover"
                         onError={(e) => {
-                          if (!e.currentTarget.src.startsWith('http://localhost:8000')) {
-                            e.currentTarget.src = `http://localhost:8000${url.startsWith('/') ? url : '/' + url}`
+                          const fallback = getMediaUrl(url.startsWith('/') ? url : '/' + url);
+                          if (e.currentTarget.src !== fallback) {
+                            e.currentTarget.src = fallback;
                           }
                         }}
                       />
@@ -521,25 +513,23 @@ export default function CitizenProgress() {
                     <div key={stg.key} className="relative">
                       {/* Step node dot */}
                       <div
-                        className={`absolute -left-[23px] top-0.5 w-3 h-3 rounded-full ring-4 ring-white dark:ring-neutral-900 transition-all ${
-                          isDone
+                        className={`absolute -left-[23px] top-0.5 w-3 h-3 rounded-full ring-4 ring-white dark:ring-neutral-900 transition-all ${isDone
                             ? 'bg-emerald-500'
                             : isCurrent
-                            ? 'bg-blue-600 ring-blue-200 dark:ring-blue-900/60 animate-pulse'
-                            : 'bg-slate-300 dark:bg-neutral-700'
-                        }`}
+                              ? 'bg-blue-600 ring-blue-200 dark:ring-blue-900/60 animate-pulse'
+                              : 'bg-slate-300 dark:bg-neutral-700'
+                          }`}
                       />
 
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
                           <p
-                            className={`font-bold ${
-                              isDone
+                            className={`font-bold ${isDone
                                 ? 'text-emerald-600 dark:text-emerald-400'
                                 : isCurrent
-                                ? 'text-blue-600 dark:text-blue-400'
-                                : 'text-slate-400 dark:text-slate-500'
-                            }`}
+                                  ? 'text-blue-600 dark:text-blue-400'
+                                  : 'text-slate-400 dark:text-slate-500'
+                              }`}
                           >
                             {stg.label}
                           </p>
@@ -597,13 +587,14 @@ export default function CitizenProgress() {
             >
               <X size={18} />
             </button>
-            <img 
-              src={getMediaUrl(lightboxPhoto)} 
-              alt="Zoomed evidence" 
-              className="max-h-[80vh] w-auto object-contain" 
+            <img
+              src={getMediaUrl(lightboxPhoto)}
+              alt="Zoomed evidence"
+              className="max-h-[80vh] w-auto object-contain"
               onError={(e) => {
-                if (!e.currentTarget.src.startsWith('http://localhost:8000')) {
-                  e.currentTarget.src = `http://localhost:8000${lightboxPhoto.startsWith('/') ? lightboxPhoto : '/' + lightboxPhoto}`
+                const fallback = getMediaUrl(lightboxPhoto.startsWith('/') ? lightboxPhoto : '/' + lightboxPhoto);
+                if (e.currentTarget.src !== fallback) {
+                  e.currentTarget.src = fallback;
                 }
               }}
             />

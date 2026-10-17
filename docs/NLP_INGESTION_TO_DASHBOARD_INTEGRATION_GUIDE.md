@@ -55,9 +55,9 @@ The ingestion layer receives raw complaints and normalizes them into the followi
 
 ```mermaid
 flowchart TD
-    S1["1. Text Normalization\n(Strip handles, URLs, clean whitespace)"] --> S2["2. Zero-Shot Classification\n(BART-large-MNLI → 10 Societal Domains)"]
+    S1["1. Text Normalization\n(Strip handles, URLs, clean whitespace)"] --> S2["2. Domain Classification\n(TypeSafe JEV → 10 Societal Domains)"]
     S1 --> S3["3. Location NER + Gazetteer\n(spaCy + 24 Jharkhand Districts & Blocks)"]
-    S1 --> S4["4. Dense Semantic Embedding\n(SentenceTransformer all-MiniLM-L6-v2 384d)"]
+    S1 --> S4["4. Dense Semantic Embedding\n(NVIDIA NIM nemotron-3-embed-1b 2048d)"]
     
     S2 & S3 & S4 --> S5["5. Multi-Source Deduplication\n(Candidate Filter + Cosine Similarity)"]
     
@@ -69,9 +69,9 @@ flowchart TD
 ```
 
 1. **Text Normalization (`ingestion/normaliser.py`)**: Removes URLs, noise, cleans whitespace.
-2. **Domain Classification (`pipeline/classification.py`)**: Zero-shot classifier (`BART-large-MNLI`) assigns one of 10 domains (e.g. *Healthcare, Water & Sanitation, Education, Infrastructure*) and a specific subdomain (*PHC Staffing*).
+2. **Domain Classification (`pipeline/classification.py`)**: Hosted TypeSafe JEV (System One) decision model assigns one of 10 domains (e.g. *Healthcare, Water & Sanitation, Education, Infrastructure*) and a specific subdomain (*PHC Staffing*).
 3. **Location NER + Gazetteer (`pipeline/location_extraction.py`)**: Extracts Jharkhand district and block using spaCy and a 24-district gazetteer.
-4. **Embeddings (`pipeline/embeddings.py`)**: Generates a 384-dimensional dense vector for semantic similarity matching.
+4. **Embeddings (`pipeline/embeddings.py`)**: Generates a 2048-dimensional dense vector (hosted NVIDIA NIM `nvidia/nemotron-3-embed-1b`; `local_minilm` offers a 384-dim offline alternative) for semantic similarity matching.
 5. **Deduplication (`pipeline/deduplication.py`)**:
    - $\ge 0.80$: Merges into existing Master Challenge.
    - $0.60 - 0.79$: Flags as related/potential duplicate for government review.

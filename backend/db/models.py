@@ -92,6 +92,9 @@ class ChallengeEvidence(Base):
     raw_text = Column(Text, nullable=False)
     clean_text = Column(Text, nullable=False)
     embedding_json = Column(JSON, nullable=True) # JSON list of floats
+    # "model:dimension" tag for embedding_json. Vectors from different models
+    # are not comparable, so the producer must be recorded to detect drift.
+    embedding_model = Column(String, nullable=True)
     media_urls = Column(JSON, nullable=True)
     submitted_lat = Column(Float, nullable=True)
     submitted_lng = Column(Float, nullable=True)

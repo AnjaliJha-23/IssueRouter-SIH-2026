@@ -10,14 +10,21 @@ sys.path.insert(0, str(Path(__file__).parent))
 import seed_mock_data
 import seed_universities
 
+import os
+
 if __name__ == "__main__":
     db_path = Path(__file__).parent / "issueRouter.db"
-    if db_path.exists():
+    # Protect against accidental database deletion in non-development environments
+    allow_wipe = os.getenv("ALLOW_DB_WIPE", "true").lower() in ("1", "true", "yes")
+    
+    if db_path.exists() and allow_wipe:
         try:
             print(f"Deleting existing database: {db_path}")
             db_path.unlink()
         except PermissionError:
             print(f"Database file is locked by active server process; proceeding with transaction-level table wipe.")
+    elif db_path.exists() and not allow_wipe:
+        print(f"Database file exists ({db_path}); skipping file unlink because ALLOW_DB_WIPE=false.")
         
     print("===========================================")
     print("        RUNNING ALL SEED SCRIPTS           ")

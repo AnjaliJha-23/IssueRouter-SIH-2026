@@ -13,7 +13,6 @@ if BACKEND_DIR not in sys.path:
 
 import pytest
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -22,13 +21,20 @@ from db.models import Challenge, ChallengeEvidence, ChallengeAnalysis, Challenge
 from ingestion.normaliser import clean_text
 from pipeline.config import DOMAINS, SUBDOMAIN_MAP, DEDUP_THRESHOLDS, DOMAIN_SEVERITY, PRIORITY_WEIGHTS
 from pipeline.location_extraction import extract_entities
-from pipeline.embeddings import get_embedding
+from pipeline.embeddings import EMBEDDING_DIM, get_embedding
 from pipeline.deduplication import resolve
 from pipeline.priority_scoring import calculate_priority
 from pipeline.summarization import generate_summary
 from pipeline.router import route_department
 from pipeline.classification import classify
 from pipeline.orchestrator import process_evidence
+
+
+def cosine_similarity(a, b) -> float:
+    """Cosine similarity without pulling scikit-learn in for a test helper."""
+    a = np.asarray(a, dtype=float).ravel()
+    b = np.asarray(b, dtype=float).ravel()
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
 
 # =====================================================================
@@ -89,16 +95,16 @@ class TestEmbeddings:
     def test_embedding_vector_dimensions(self):
         emb = get_embedding("Clean drinking water shortage in rural village")
         assert isinstance(emb, list)
-        assert len(emb) == 384
+        assert len(emb) == EMBEDDING_DIM
         assert all(isinstance(x, float) for x in emb)
 
     def test_semantic_similarity_separation(self):
-        emb_water1 = np.array([get_embedding("[Water & Sanitation] Contaminated drinking water in village wells")])
-        emb_water2 = np.array([get_embedding("[Water & Sanitation] Dirty tap water causing illness in village")])
-        emb_traffic = np.array([get_embedding("[Infrastructure/Transport] Traffic lights broken on main highway intersection")])
+        emb_water1 = get_embedding("[Water & Sanitation] Contaminated drinking water in village wells")
+        emb_water2 = get_embedding("[Water & Sanitation] Dirty tap water causing illness in village")
+        emb_traffic = get_embedding("[Infrastructure/Transport] Traffic lights broken on main highway intersection")
 
-        sim_related = float(cosine_similarity(emb_water1, emb_water2)[0][0])
-        sim_unrelated = float(cosine_similarity(emb_water1, emb_traffic)[0][0])
+        sim_related = cosine_similarity(emb_water1, emb_water2)
+        sim_unrelated = cosine_similarity(emb_water1, emb_traffic)
 
         assert sim_related > 0.65, f"Expected high similarity between related texts, got {sim_related}"
         assert sim_unrelated < 0.40, f"Expected low similarity between unrelated texts, got {sim_unrelated}"
@@ -110,17 +116,29 @@ class TestEmbeddings:
 # =====================================================================
 class TestDeduplication:
     def test_new_challenge_when_no_candidates(self):
-        emb = [0.1] * 384
+        emb = [0.1] * EMBEDDING_DIM
         res = resolve(emb, "Healthcare", "Ranchi", [])
         assert res["action"] == "new_challenge"
         assert res["matched_challenge_id"] is None
         assert res["similarity_score"] == 0.0
 
     def test_filter_excludes_different_district_or_domain(self):
-        emb = [0.1] * 384
+        emb = [0.1] * EMBEDDING_DIM
         candidates = [
-            {"id": "HC-001", "domain": "Education", "district": "Ranchi", "canonical_embedding": [0.1] * 384},
-            {"id": "HC-002", "domain": "Healthcare", "district": "Dhanbad", "canonical_embedding": [0.1] * 384}
+            {"id": "HC-001", "domain": "Education", "district": "Ranchi", "canonical_embedding": [0.1] * EMBEDDING_DIM},
+            {"id": "HC-002", "domain": "Healthcare", "district": "Dhanbad", "canonical_embedding": [0.1] * EMBEDDING_DIM}
+        ]
+        res = resolve(emb, "Healthcare", "Ranchi", candidates)
+        assert res["action"] == "new_challenge"
+        assert res["matched_challenge_id"] is None
+
+    def test_dimension_mismatch_is_skipped_not_crashed(self):
+        # Rows embedded by an older model must never be compared against the
+        # current vectors; the shape mismatch is skipped, not raised.
+        emb = [0.1] * EMBEDDING_DIM
+        older = [0.1] * (EMBEDDING_DIM + 16)
+        candidates = [
+            {"id": "HC-303", "domain": "Healthcare", "district": "Ranchi", "canonical_embedding": older}
         ]
         res = resolve(emb, "Healthcare", "Ranchi", candidates)
         assert res["action"] == "new_challenge"
@@ -212,7 +230,7 @@ class TestRouter:
 
 
 # =====================================================================
-# 8. Zero-Shot Classification Contract Tests
+# 8. Domain Classification Contract Tests
 # =====================================================================
 class TestClassification:
     def test_classification_contract_and_domain_validity(self):

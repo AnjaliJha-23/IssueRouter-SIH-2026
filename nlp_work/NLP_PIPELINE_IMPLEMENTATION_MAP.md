@@ -45,7 +45,7 @@ The pipeline is called from two places:
 Exposes a single public entrypoint, `run_pipeline(evidence: EvidenceIn) -> PipelineResult`, so `ingestion/` and `api/challenges.py` never call individual stages directly. This keeps the orchestration logic in one place and makes the pipeline independently testable via `test_pipeline.py`.
 
 ### 2.2 `backend/pipeline/classification.py` — **EXTEND**
-- **Model:** `facebook/bart-large-mnli` (zero-shot classification), loaded once at process start and cached (see §4 Caching).
+- **Engine:** TypeSafe **JEV** (System One) decision model, selected by `CLASSIFIER_BACKEND` (`jev` | `transformers` | `keyword`). The default `jev` backend loads **no local model**; `keyword` is a deterministic Hinglish-aware lexicon fallback; `transformers` keeps the legacy local `facebook/bart-large-mnli` and is opt-in only.
 - **Labels:** the 10 societal domains referenced in README §6 — Healthcare, Education, Water & Sanitation, Environment, Energy, Urban Development, Accessibility, Public Administration, Rural Livelihoods, Infrastructure/Transport (confirm exact 10 against the existing IssueRouter category list during Phase 0 audit; do not silently rename categories already used in seed data).
 - **Input:** normalized evidence text (title + body, cleaned of URLs/mentions for tweets).
 - **Output contract:**
@@ -54,11 +54,11 @@ Exposes a single public entrypoint, `run_pipeline(evidence: EvidenceIn) -> Pipel
     "domain": "Healthcare",
     "subdomain": "Rural Access",
     "domain_scores": {"Healthcare": 0.83, "Public Administration": 0.09, "...": "..."},
-    "model_version": "facebook/bart-large-mnli"
+    "model_version": "jev-1.13.0"
   }
   ```
 - **Reused from IssueRouter:** category taxonomy and thresholding logic if present; retarget label set from generic complaint categories to the societal domain list.
-- **Subdomain:** a second-pass zero-shot call scoped to a per-domain subdomain label set (e.g., Healthcare → {Rural Access, PHC Staffing, Diagnostics, Maternal Health, Waterborne Disease}), only run when top-domain confidence clears a threshold (default 0.55, configurable).
+- **Subdomain:** a second-pass JEV call scoped to a per-domain subdomain label set (e.g., Healthcare → {Rural Access, PHC Staffing, Diagnostics, Maternal Health, Waterborne Disease}), only run when top-domain confidence clears a threshold (default 0.55, configurable).
 
 ### 2.3 `backend/pipeline/location_extraction.py` — **EXTEND**
 - **Model:** spaCy pipeline (`en_core_web_sm` or similar base model) + a custom `EntityRuler` seeded with a **Jharkhand gazetteer** (24 districts + block-level names).
@@ -79,7 +79,7 @@ Exposes a single public entrypoint, `run_pipeline(evidence: EvidenceIn) -> Pipel
 - **Gazetteer file:** `backend/pipeline/data/jharkhand_gazetteer.json` — **NEW**, structured as `{district: [block, block, ...]}`, sourced once and version-controlled; frontend's `frontend/src/data/` geography file should be generated from (or kept in sync with) this same source to avoid two diverging copies of Jharkhand geography (Blueprint §3.2 "do not maintain separate systems" applies here too).
 
 ### 2.4 `backend/pipeline/embeddings.py` — **NEW**
-- **Model:** `sentence-transformers/all-MiniLM-L6-v2`.
+- **Model:** selected by `EMBEDDING_BACKEND` — the default `api` calls NVIDIA NIM `nvidia/nemotron-3-embed-1b` (2048-d) over HTTP and keeps no weights in the process; `local_minilm` keeps the offline `sentence-transformers/all-MiniLM-L6-v2` (384-d) as an optional dev extra.
 - **Responsibility:** produce a fixed-length embedding vector per evidence item's canonical text (title + cleaned body, domain-prefixed to aid separation, e.g. `"[Healthcare] <text>"`).
 - **Storage:** store embeddings alongside `ChallengeEvidence` rows (a `vector`/`ARRAY(Float)` column, or a lightweight `EvidenceEmbedding` side table if the SQLAlchemy/Postgres setup doesn't support pgvector — confirm DB choice against `backend/db/` during Phase 0; SQLite fallback stores as a JSON-encoded float array).
 - **Caching layer:** `backend/cache/` (already in repo structure per README §7) should cache embeddings for identical/near-identical text to avoid recomputation on ingestion retries.
@@ -171,9 +171,9 @@ Confirm during Phase 0 whether an existing `Cluster`/`Tweet` table from the orig
 
 ## 4. Model Loading & Caching Strategy
 
-- Load `bart-large-mnli`, spaCy pipeline, and `all-MiniLM-L6-v2` **once per process** at startup (not per-request) — expose as module-level singletons in each pipeline file, imported by `orchestrator.py`.
+- Load the spaCy pipeline **once per process** at startup (not per-request) — expose it as a module-level singleton in `location_extraction.py`, imported by `orchestrator.py`. The default configuration (`CLASSIFIER_BACKEND=jev`, `EMBEDDING_BACKEND=api`, `SUMMARIZATION_BACKEND=nvidia`) loads **no local model weights at all**; `transformers` adds `bart-large-mnli` and `local_minilm` adds `all-MiniLM-L6-v2`, both opt-in.
 - Use `backend/cache/` for: (a) embedding cache keyed by text hash, (b) classification cache for identical/near-identical evidence text (common with retweet-style duplicate signals), (c) short-TTL cache of a challenge's canonical embedding so dedup doesn't recompute it on every incoming evidence item.
-- All models must run CPU-only and fit comfortably for a live demo — confirm `bart-large-mnli` load time and consider a distilled zero-shot alternative (e.g., `valhalla/distilbart-mnli-12-3`) if startup/inference latency threatens the 5–10 minute demo constraint (MVP_PLAN.md Definition of Done).
+- All models must run CPU-only and fit comfortably for a live demo — the default `jev` backend removes ~1.6 GB of BART weights from the process; if the local `transformers` backend is used, prefer a distilled zero-shot alternative (e.g., `valhalla/distilbart-mnli-12-3`) so startup/inference latency does not threaten the 5–10 minute demo constraint (MVP_PLAN.md Definition of Done).
 
 ---
 

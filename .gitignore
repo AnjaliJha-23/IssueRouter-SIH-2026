@@ -71,3 +71,9 @@ out/
 uploads/
 **/uploads/
 
+# Internal workstream docs (planning notes, not meant to be shared)
+docs/azure/
+docs/citizen-portal/
+docs/government-dashboard-ui/
+docs/government-routing/
+
