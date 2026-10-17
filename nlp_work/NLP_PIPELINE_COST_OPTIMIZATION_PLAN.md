@@ -53,10 +53,10 @@ Everything heavy runs in **one Gunicorn worker** — `startup.sh` forces `WORKER
 
 ### 1.2 Model naming — standardized on NVIDIA NIM ✅ (resolved; provider changed)
 
-Summarization now runs on **NVIDIA NIM** (`qwen/qwen2.5-7b-instruct`), still with `pipeline/config.py` as the single source of truth:
+Summarization now runs on **NVIDIA NIM** (`nvidia/nemotron-3.5-lightning-30b-a3b`), still with `pipeline/config.py` as the single source of truth:
 
-- `pipeline/config.py` → `SUMMARIZATION_MODEL = "qwen/qwen2.5-7b-instruct"`
-- `backend/.env.example` → `NVIDIA_MODEL=qwen/qwen2.5-7b-instruct`
+- `pipeline/config.py` → `SUMMARIZATION_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"`
+- `backend/.env.example` → `NVIDIA_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b`
 - `pipeline/summarization.py` → `os.getenv("NVIDIA_MODEL", SUMMARIZATION_MODEL)` (no hard-coded default)
 - `pipeline/orchestrator.py` and `backend/seed_mock_data.py` → record the effective model via `summarization.active_model()`.
 
@@ -168,7 +168,7 @@ EMBEDDING_BACKEND=api                  # api | local_minilm
 NVIDIA_EMBED_MODEL=nvidia/nemotron-3-embed-1b   # 2048-d
 
 SUMMARIZATION_BACKEND=nvidia           # nvidia | groq | extractive
-NVIDIA_MODEL=qwen/qwen2.5-7b-instruct
+NVIDIA_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b
 
 # NER  (A4 — not yet shipped; spaCy is the last in-process model)
 NER_BACKEND=spacy                      # spacy | regex

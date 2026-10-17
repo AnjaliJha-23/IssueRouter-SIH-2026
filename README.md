@@ -138,7 +138,7 @@ It evaluates 5 targets using transparent, weighted deterministic scoring:
 - **Domain Classification**: TypeSafe **JEV** (System One) decision model across 10 societal domains, with a deterministic keyword fallback and an opt-in local `facebook/bart-large-mnli` backend (`CLASSIFIER_BACKEND`)
 - **Location Extraction**: spaCy with custom EntityRuler and Jharkhand gazetteer (districts and blocks)
 - **Semantic Deduplication**: NVIDIA NIM hosted embeddings (`nvidia/nemotron-3-embed-1b`, 2048-d) with cosine clustering; `EMBEDDING_BACKEND=local_minilm` keeps an offline 384-d fallback
-- **Summarization & Insights**: NVIDIA NIM chat completions (`qwen/qwen2.5-7b-instruct`) for canonical challenge synthesis, with a deterministic extractive fallback
+- **Summarization & Insights**: NVIDIA NIM chat completions (`nvidia/nemotron-3.5-lightning-30b-a3b`) for canonical challenge synthesis, with a deterministic extractive fallback
 - **Scoring**: Weighted multi-factor deterministic algorithms for priority and routing
 
 ---

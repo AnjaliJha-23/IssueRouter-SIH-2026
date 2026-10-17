@@ -73,7 +73,7 @@ The **Ingestion & NLP Pipeline** is the intelligence gateway of **IssueRouter**.
                                       v
                  +------------------------------------------+
                  | 6. MULTI-EVIDENCE LLM SUMMARIZATION      |
-                 | - Model: qwen2.5-7b-instruct (NIM)       |
+                 | - Model: nemotron-3.5-lightning (NIM)    |
                  | - Generates canonical Title (<=10 words) |
                  |   and Description (<=30 words)           |
                  | - Zero-downtime extractive fallback      |
@@ -129,7 +129,7 @@ Before diving into the pipeline internals, here is how the Ingestion & NLP layer
  | - Spatial NER: spaCy EntityRuler + Jharkhand Gazetteer + Lat/Lng Fallback       |
  | - Embeddings: NVIDIA NIM nemotron-3-embed-1b (2048-dimensional)                 |
  | - Deduplication: Partitioned Cosine Similarity (Auto-Link / Flag / New)         |
- | - Summarization: NVIDIA NIM qwen2.5-7b-instruct + Extractive Fallback     |
+ | - Summarization: NVIDIA NIM nemotron-3.5-lightning + Extractive Fallback   |
  | - Priority Scoring: Explainable 4-Factor Linear Model (0-100)                   |
  | - Smart Routing: Category to Department Mapping + City Overrides                |
  +---------------------------------------------------------------------------------+
@@ -160,7 +160,7 @@ Before diving into the pipeline internals, here is how the Ingestion & NLP layer
 | **NLP & Deep Learning** | Hosted NVIDIA NIM embeddings, TypeSafe JEV decision model | Remote dense embeddings, domain inference (no local model weights) |
 | **Information Extraction** | spaCy v3, Custom Rule-based EntityRuler | Spatial Named Entity Recognition (NER), Gazetteer resolution |
 | **Deduplication / Math** | NumPy | High-speed vectorized cosine similarity (dot product of L2-normalised unit vectors) |
-| **Generative AI** | NVIDIA NIM chat completions (`qwen/qwen2.5-7b-instruct`) | Canonical issue synthesis, incremental summarization |
+| **Generative AI** | NVIDIA NIM chat completions (`nvidia/nemotron-3.5-lightning-30b-a3b`) | Canonical issue synthesis, incremental summarization |
 | **Backend & APIs** | FastAPI, Pydantic v2, Uvicorn | Async REST APIs, WebSockets, lifecycle management |
 | **Data Persistence** | SQLAlchemy 2.0, SQLite (Dev) / PostgreSQL (Prod) | Relational schema with foreign keys and embedded JSON vectors |
 | **Frontend UI** | Next.js 14, React, TailwindCSS, Lucide Icons | Real-time map dashboard, university/industry portal, admin panels |
@@ -516,7 +516,7 @@ The master state machine that   coordinates Stages 1 through 9 inside an atomic 
 ### Stage 7: Incremental Multi-Evidence Summarization
 
 - **Files:** `backend/pipeline/summarization.py`, `backend/pipeline/nvidia_llm.py`, `backend/pipeline/config.py`
-- **LLM Engine:** NVIDIA NIM chat completions (`qwen/qwen2.5-7b-instruct`, `SUMMARIZATION_BACKEND=nvidia`; model from `config.SUMMARIZATION_MODEL`, overridable via `NVIDIA_MODEL`) with Extractive Fallback. `SUMMARIZATION_BACKEND=groq` (legacy, requires `pip install groq`) and `SUMMARIZATION_BACKEND=extractive` (offline) remain selectable.
+- **LLM Engine:** NVIDIA NIM chat completions (`nvidia/nemotron-3.5-lightning-30b-a3b`, `SUMMARIZATION_BACKEND=nvidia`; model from `config.SUMMARIZATION_MODEL`, overridable via `NVIDIA_MODEL`) with Extractive Fallback. `SUMMARIZATION_BACKEND=groq` (legacy, requires `pip install groq`) and `SUMMARIZATION_BACKEND=extractive` (offline) remain selectable. The model ID must exist in the NIM catalog — NVIDIA retires models without notice, and an unknown ID returns a bare `404 page not found`, which silently degrades summarization to the extractive fallback. Verify with `GET https://integrate.api.nvidia.com/v1/models/<id>` (retired models answer `410 Gone`).
 - **Module Function:** `generate_summary(existing_summary, new_evidence_text, domain, location) -> dict`
 
 #### What it does
