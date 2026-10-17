@@ -82,6 +82,19 @@ def test_known_models_have_declared_dimensions():
     assert _MODEL_DIMENSIONS["all-MiniLM-L6-v2"] == 384
 
 
+def test_base_url_inherits_shared_nvidia_base_url(monkeypatch):
+    # Embeddings and chat share one base URL in practice, so setting the shared
+    # variable alone must be enough.
+    monkeypatch.delenv("NVIDIA_EMBED_BASE_URL", raising=False)
+    monkeypatch.setenv("NVIDIA_BASE_URL", "https://nim.internal.example/v1")
+
+    assert nvidia_embed.base_url() == "https://nim.internal.example/v1"
+
+    monkeypatch.setenv("NVIDIA_EMBED_BASE_URL", "https://embed-only.example/v1/")
+
+    assert nvidia_embed.base_url() == "https://embed-only.example/v1"
+
+
 # ── Hosted backend request/response contract ───────────────────────────────
 
 def test_request_payload_matches_nim_contract(api_backend, monkeypatch):

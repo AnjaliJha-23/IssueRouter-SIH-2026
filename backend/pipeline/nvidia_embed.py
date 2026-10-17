@@ -44,7 +44,13 @@ def is_configured() -> bool:
 
 
 def base_url() -> str:
-    return _env("NVIDIA_EMBED_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    # NVIDIA_EMBED_BASE_URL wins, then the shared NVIDIA_BASE_URL, then the
+    # public catalog. Embeddings and chat normally share one base URL, so the
+    # shared variable is usually the only one that needs setting.
+    explicit = _env("NVIDIA_EMBED_BASE_URL", "")
+    if explicit:
+        return explicit.rstrip("/")
+    return _env("NVIDIA_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 
 
 def default_model() -> str:
