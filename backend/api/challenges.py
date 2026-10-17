@@ -168,7 +168,7 @@ def create_challenge(
 ):
     """
     Creates/links a challenge by running input data through the full NLP Pipeline
-    (Cleaning, Zero-Shot Classification, Location Extraction, Embeddings, Deduplication, Canonical Summarization, and Priority Scoring).
+    (Cleaning, Domain Classification via JEV, Location Extraction, Embeddings, Deduplication, Canonical Summarization, and Priority Scoring).
     """
     if not req.description or len(req.description.strip()) < 5:
         raise HTTPException(status_code=400, detail="Please provide a description of the issue.")

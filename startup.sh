@@ -38,7 +38,9 @@ export VECLIB_MAXIMUM_THREADS="${VECLIB_MAXIMUM_THREADS:-1}"
 export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-1}"
 
 # S1 memory constraint: 1.75 GB RAM total.
-# Worker count MUST strictly remain 1 to avoid multiple copies of facebook/bart-large-mnli
+# Worker count MUST strictly remain 1: every worker holds its own copy of the
+# in-process models (sentence-transformers, spaCy) and, when
+# CLASSIFIER_BACKEND=transformers, ~1.6 GB of BART weights on top.
 WORKER_COUNT=1
 
 echo "[startup] Launching Gunicorn with ${WORKER_COUNT} Uvicorn worker on port ${APP_PORT}..."

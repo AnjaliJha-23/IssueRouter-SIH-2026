@@ -140,7 +140,7 @@ class ComplaintRequest(BaseModel):
 def process_complaint(req: ComplaintRequest, db: Session = Depends(get_db)):
     """
     Direct endpoint executing the complete IssueRouter NLP pipeline on input complaint text.
-    Invokes normaliser, zero-shot classifier, spaCy gazetteer entity extraction,
+    Invokes normaliser, the JEV domain classifier, spaCy gazetteer entity extraction,
     dense vector embedding, semantic deduplication, canonical summarization, and priority scoring.
     """
     from pipeline.orchestrator import process_evidence

@@ -36,13 +36,20 @@ This file documents all architectural decisions, design contracts, threshold tun
   - `summarization.py`: Added `GROQ_MODEL` environment variable support (defaulting to `groq/compound-mini`), with robust extractive fallback if external LLM APIs return 404/rate limit or if `GROQ_API_KEY` is not present.
 - **Impact:** Ensures the pipeline always succeeds deterministically without crashing on third-party service outages.
 
+#### 6. JEV Decision Model for Domain Classification (`backend/pipeline/classification.py`, `backend/pipeline/jev_client.py`)
+- **Motivation:** The local `facebook/bart-large-mnli` zero-shot pipeline held ~1.6 GB of weights on a 1.75 GB B1 instance and ran two forward passes per complaint.
+- **Change:**
+  - `classification.py`: introduced `CLASSIFIER_BACKEND` (`jev` | `transformers` | `keyword`, default `jev`). The `jev` backend asks TypeSafe System One for domain (`Choice`), severity (`Score`) and urgency (`Noul`) in one call, plus a gated second call for subdomain. `keyword` (`pipeline/keyword_classifier.py`) is the deterministic Hinglish-aware offline fallback. `transformers` keeps the legacy local BART and is imported only when explicitly selected.
+  - Added `pipeline/jev_client.py` (httpx client, retry on 429/529) and the JEV rubrics `DOMAIN_CRITERIA` / `SEVERITY_LEVELS` in `config.py`.
+- **Impact:** Frees ~1.6 GB of RAM and removes torch/transformers from the default import path. Return contract unchanged, so `orchestrator.py` is untouched. Any API failure or missing key falls back to the lexicon, so the pipeline never hard-fails on the decision model.
+
 ---
 
 ## 🏛️ Pipeline Module Architectural Reference
 
 | Submodule | Core Responsibility | Underlying Model / Logic | Config Key / Contract |
 |---|---|---|---|
-| `classification.py` | Top-level domain & subdomain classification | Zero-Shot `facebook/bart-large-mnli` | `DOMAINS` (10 categories), `SUBDOMAIN_MAP` |
+| `classification.py` | Top-level domain & subdomain classification | TypeSafe **JEV** (System One) via `CLASSIFIER_BACKEND=jev`, with a deterministic keyword-lexicon fallback (`transformers` keeps local BART) | `DOMAINS` (10 categories), `SUBDOMAIN_MAP`, `DOMAIN_CRITERIA` |
 | `location_extraction.py` | 24 Jharkhand districts & block resolution | spaCy `EntityRuler` + `jharkhand_gazetteer.json` | Exact, Substring, Coords fallback |
 | `embeddings.py` | 384-dimensional dense semantic vectors | `sentence-transformers/all-MiniLM-L6-v2` | `[Domain] Cleaned_Text` |
 | `deduplication.py` | Filter by `(domain, district)` + Cosine similarity clustering | `scikit-learn` Cosine Similarity | `auto_link` (≥0.80), `flag_related` (0.60–0.79), `new_challenge` (<0.60) |

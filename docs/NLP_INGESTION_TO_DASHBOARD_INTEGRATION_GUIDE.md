@@ -55,7 +55,7 @@ The ingestion layer receives raw complaints and normalizes them into the followi
 
 ```mermaid
 flowchart TD
-    S1["1. Text Normalization\n(Strip handles, URLs, clean whitespace)"] --> S2["2. Zero-Shot Classification\n(BART-large-MNLI → 10 Societal Domains)"]
+    S1["1. Text Normalization\n(Strip handles, URLs, clean whitespace)"] --> S2["2. Domain Classification\n(TypeSafe JEV → 10 Societal Domains)"]
     S1 --> S3["3. Location NER + Gazetteer\n(spaCy + 24 Jharkhand Districts & Blocks)"]
     S1 --> S4["4. Dense Semantic Embedding\n(SentenceTransformer all-MiniLM-L6-v2 384d)"]
     

@@ -135,7 +135,7 @@ It evaluates 5 targets using transparent, weighted deterministic scoring:
 - **Architecture**: Modular routers (`challenges`, `smart_router`, `stats`, `auth`)
 
 ### AI & NLP Pipeline
-- **Zero-Shot Classification**: `facebook/bart-large-mnli` tuned across 10 societal domains
+- **Domain Classification**: TypeSafe **JEV** (System One) decision model across 10 societal domains, with a deterministic keyword fallback and an opt-in local `facebook/bart-large-mnli` backend (`CLASSIFIER_BACKEND`)
 - **Location Extraction**: spaCy with custom EntityRuler and Jharkhand gazetteer (districts and blocks)
 - **Semantic Deduplication**: `sentence-transformers` (`all-MiniLM-L6-v2`) cosine similarity clustering
 - **Summarization & Insights**: Fast LLM inference (Groq / Hugging Face) for canonical challenge synthesis

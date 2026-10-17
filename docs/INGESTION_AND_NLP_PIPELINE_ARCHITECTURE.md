@@ -29,8 +29,8 @@ The **Ingestion & NLP Pipeline** is the intelligence gateway of **IssueRouter**.
                                       |
                                       v
                  +------------------------------------------+
-                 | 2. ZERO-SHOT DOMAIN CLASSIFIER (classify)|
-                 | - Model: facebook/bart-large-mnli        |
+                 | 2. DOMAIN CLASSIFIER (classify)          |
+                 | - Model: TypeSafe JEV (System One)       |
                  | - 10 Primary Civic Domains               |
                  | - Conditional Subdomain 2nd Pass         |
                  +------------------------------------------+
@@ -125,7 +125,7 @@ Before diving into the pipeline internals, here is how the Ingestion & NLP layer
                                       v
  +---------------------------------------------------------------------------------+
  |                           2. NLP & AI INTELLIGENCE PIPELINE                     |
- | - Classification: BART-Large-MNLI (10 Domains + Subdomains)                     |
+ | - Classification: TypeSafe JEV (10 Domains + Subdomains)                     |
  | - Spatial NER: spaCy EntityRuler + Jharkhand Gazetteer + Lat/Lng Fallback       |
  | - Embeddings: sentence-transformers/all-MiniLM-L6-v2 (384-dimensional)          |
  | - Deduplication: Partitioned Cosine Similarity (Auto-Link / Flag / New)         |
@@ -198,10 +198,10 @@ Receives raw JSON payloads from external streams (Twitter/X streaming API, simul
 
 ---
 
-### Stage 2: Zero-Shot Domain & Subdomain Classification
+### Stage 2: Domain & Subdomain Classification
 
-- **Files:** `backend/pipeline/classification.py`, `backend/pipeline/config.py`
-- **Model:** `facebook/bart-large-mnli` (configurable via `CLASSIFICATION_MODEL` env var)
+- **Files:** `backend/pipeline/classification.py`, `backend/pipeline/config.py`, `backend/pipeline/jev_client.py`
+- **Engine:** TypeSafe **JEV** (System One) decision model, selected by `CLASSIFIER_BACKEND` (`jev` | `transformers` | `keyword`). Default `jev`; any API failure or missing key falls back to the deterministic `keyword` classifier. The legacy local `facebook/bart-large-mnli` backend is opt-in only (`transformers`).
 - **Module Function:** `classify(text: str) -> dict`
 
 ```text
@@ -210,7 +210,7 @@ Receives raw JSON payloads from external streams (Twitter/X streaming API, simul
                                    v
              +-------------------------------------------+
              | 1st Pass: Top-Level Domain Classification |
-             | (10 candidate domains via BART-Large-MNLI)|
+             | (10 candidate domains via JEV / TypeSafe) |
              +-------------------------------------------+
                                    |
                                    v
@@ -252,8 +252,8 @@ Categorizes unstructured text into one of 10 primary government operational doma
 10. `Infrastructure/Transport`
 
 #### How it works
-1. **First-Pass Zero-Shot Classification:** Runs Natural Language Inference (NLI) using BART-Large-MNLI. The text serves as the *premise*, and `"This text is about {domain}"` serves as the *hypothesis*.
-2. **Confidence Filtering:** If the top domain confidence exceeds `0.55` and the domain has mapped subdomains in `SUBDOMAIN_MAP`, a second zero-shot pass is triggered over the sub-categories.
+1. **First-Pass Domain Classification:** The JEV (System One) model picks one of the 10 domains, each described by its rubric in `config.DOMAIN_CRITERIA`; the response carries the full probability distribution (`domain_scores`). The same single call also returns a severity `Score` and an urgency `Noul`.
+2. **Confidence Filtering:** If the top domain confidence exceeds `0.55` and the domain has mapped subdomains in `SUBDOMAIN_MAP`, a second JEV call is made over the sub-categories.
 3. **Output Contract:**
 ```json
 {
@@ -263,13 +263,13 @@ Categorizes unstructured text into one of 10 primary government operational doma
     "Healthcare": 0.892,
     "Water & Sanitation": 0.045
   },
-  "model_version": "facebook/bart-large-mnli"
+  "model_version": "jev-1.13.0"
 }
 ```
 
 #### Why this decision?
-- **Zero-Shot vs Supervised Classifier:** Civic problem categories evolve constantly. In hackathons and production pilots, there is no pre-labeled dataset of 50,000 localized Indian civic complaints. Zero-shot NLI allows instant domain expansion by merely editing `config.py` without model retraining.
-- **Hierarchical Two-Pass Routing:** Running a single flat classification across 50+ granular subdomains severely degrades MNLI softmax distribution. A two-pass hierarchical approach (Domain -> Subdomain) maintains high statistical precision.
+- **Hosted Decision Model vs Supervised Classifier:** Civic problem categories evolve constantly. In hackathons and production pilots, there is no pre-labeled dataset of 50,000 localized Indian civic complaints. JEV is defined entirely by the `criteria` we send, so domains are added by editing `config.py` — no retraining, no fine-tuning, and calibrated probabilities instead of generated text to parse.
+- **Hierarchical Two-Pass Routing:** Running a single flat classification across 50+ granular subdomains severely degrades a flat probability distribution. A two-pass hierarchical approach (Domain -> Subdomain) maintains high statistical precision.
 
 ---
 

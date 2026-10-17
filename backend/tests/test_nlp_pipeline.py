@@ -212,7 +212,7 @@ class TestRouter:
 
 
 # =====================================================================
-# 8. Zero-Shot Classification Contract Tests
+# 8. Domain Classification Contract Tests
 # =====================================================================
 class TestClassification:
     def test_classification_contract_and_domain_validity(self):

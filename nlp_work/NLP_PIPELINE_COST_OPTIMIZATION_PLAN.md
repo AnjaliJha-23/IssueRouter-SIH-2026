@@ -13,7 +13,7 @@
 
 1. **Fix the currently broken `summarization.py`** (missing imports + undefined `get_client()`).
 2. **Stop shipping CUDA torch** — swap to the CPU wheel right away, then remove torch entirely.
-3. **Offload BART classification → LLM API** and **MiniLM embeddings → hosted embedding API**, then delete `torch` / `transformers` / `sentence-transformers`.
+3. **Offload BART classification → the TypeSafe JEV decision model** (✅ shipped) and **MiniLM embeddings → hosted embedding API**, then delete `torch` / `transformers` / `sentence-transformers`.
 
 Together these cut the deploy image from ~2.5–3 GB to ~300–500 MB, resident RAM from ~1.5–1.8 GB to ~150–300 MB, and let the backend run comfortably on B1 — or on scale-to-zero Container Apps for close to $0 during a demo.
 
@@ -66,13 +66,13 @@ There is no longer any `gpt-oss` reference in the project. (Note: `summarization
 
 ## 2. The two proposed ideas — validated
 
-### 2.1 Use GPT / an LLM for the "decision" — ✅ strongly recommended
+### 2.1 Offload the "decision" to a hosted model — ✅ shipped as TypeSafe JEV
 
-On 1 vCPU a local BART forward pass is **slower than an LLM round-trip** *and* consumes the entire RAM budget. A single structured-output LLM call can return `{domain, subdomain, tags, severity_hint}` in one shot, replacing **two** BART passes.
+On 1 vCPU a local BART forward pass is **slower than a hosted round-trip** *and* consumes the entire RAM budget. A single call returns domain, subdomain, severity and urgency in one shot, replacing **two** BART passes.
 
-Design caveats:
+**Decision: TypeSafe JEV (System One), not a general-purpose LLM.** JEV is a hosted *classifier*, not a text generator: one `POST /v1/systemone` carries a map of typed questions (`Choice` for domain/subdomain, `Score` for severity, `Noul` for urgency) and returns calibrated probabilities the code branches on directly. It is defined entirely by the `criteria` we send, so new domains are added by editing `config.py` — no fine-tuning, no prompt drift, and nothing to parse. Pricing: **$0.042/MTok input, output free** (≈$0.000027 per complaint, measured).
 
-- **Pin a small/cheap model** — e.g. Groq `llama-3.3-70b-versatile`, OpenAI `gpt-4o-mini` / `gpt-5-mini`, or the Azure OpenAI equivalent — with `response_format=json_schema`. (Summarization itself stays on `groq/compound-mini`; this is only about the future classification stage.)
+Design caveats, all honoured in the implementation:
 - **Keep a deterministic keyword fallback** (domain → keyword map in `config.py`) so the demo never depends on the network.
 - **Keep priority scoring deterministic.** Do not let the LLM produce the priority number — explainability is a documented non-negotiable (`Blueprint §7`, `ARCHITECTURE.md §6`).
 - **Cost scales with volume.** The mock feed replays every ~8 s and `backend/run_large_scale_simulation.py` processes many items → cache by text hash and skip the LLM for obvious cases.
@@ -102,7 +102,7 @@ Each item lists **what → where → impact → effort → risk**.
 
 | ID | Change | Files | Impact | Effort | Risk |
 |---|---|---|---|---|---|
-| **A1** | Add `LLMClassifier` behind `CLASSIFIER_BACKEND=llm\|local_bart\|keyword`. One JSON-schema call returns `{domain, subdomain, tags, severity_hint}`; keep the existing return contract so `orchestrator.py` is untouched. | `pipeline/classification.py`, `pipeline/config.py` | Removes ~1.6 GB RAM; 2 passes → 1 offloaded call | M | Med (network dependency → mitigated by fallback) |
+| **A1** | ✅ **Shipped.** `CLASSIFIER_BACKEND=jev\|transformers\|keyword` (default `jev`). The `jev` backend asks TypeSafe System One for domain (`Choice`) + severity (`Score`) + urgency (`Noul`) with a gated second call for subdomain; `keyword` is the deterministic offline fallback; `transformers` is the opt-in legacy BART. Return contract unchanged, `orchestrator.py` untouched. New: `pipeline/jev_client.py`, `pipeline/keyword_classifier.py`. | `pipeline/classification.py`, `pipeline/config.py` | Removes ~1.6 GB RAM; 2 local passes → 1–2 hosted calls | M | Low (auto-fallback to keyword) |
 | **A2** | Add `APIEmbedder` behind `EMBEDDING_BACKEND=api\|local_onnx\|local_minilm`, returning a fixed `EMBEDDING_DIM`. Add a **dimension-versioned embedding** and re-embed on mismatch. | `pipeline/embeddings.py`, `db/models.py` | Removes ~90 MB + torch | M | Med (dimension migration) |
 | **A3** | Once A1+A2 are default, **drop `torch`, `transformers`, `sentence-transformers`, `scikit-learn`, `scipy`** from requirements; replace sklearn `cosine_similarity` with a NumPy dot of normalized vectors. | `backend/requirements.txt`, `pipeline/deduplication.py` | Image ~2.5–3 GB → ~300–500 MB; frees RAM | S | Low |
 | **A4** | Replace spaCy NER with a pure-Python gazetteer matcher (dict/regex) from the existing gazetteer JSON. NER is already fully rule-based → behaviour-preserving. `NER_BACKEND=spacy\|regex`. | `pipeline/location_extraction.py`, `pipeline/data/jharkhand_gazetteer.json` | Removes ~50–100 MB + load time | S | Low |
@@ -159,9 +159,11 @@ Each item lists **what → where → impact → effort → risk**.
 ## 4. Proposed config / env contract (stages become swappable)
 
 ```dotenv
-# Classifier
-CLASSIFIER_BACKEND=llm                 # llm | local_bart | keyword
-CLASSIFICATION_MODEL=llama-3.3-70b-versatile   # or gpt-4o-mini / gpt-5-mini
+# Classifier  (✅ shipped; see backend/.env.example)
+CLASSIFIER_BACKEND=jev                 # jev | transformers | keyword
+JEV_MODEL=jev-latest                   # TypeSafe System One model id
+TYPESAFE_API_KEY=                      # https://console.typesafe.ai/keys
+CLASSIFICATION_MODEL=facebook/bart-large-mnli   # only used when CLASSIFIER_BACKEND=transformers
 
 # Embeddings
 EMBEDDING_BACKEND=api                  # api | local_onnx | local_minilm
@@ -188,7 +190,7 @@ PIPELINE_ASYNC=true
 
 1. **G1–G3** — fix the broken summarizer + model-name drift (unblocks the app).
 2. **B2 / A3 (partial)** — swap to the CPU torch wheel immediately (stops multi-GB CUDA builds on the next deploy).
-3. **A1 + A2** — LLM classifier + hosted embedder behind flags; validate against `backend/tests/test_nlp_pipeline.py`.
+3. **A1 ✅ + A2** — JEV classifier shipped and validated on 10 Hinglish samples (10/10 correct); the hosted embedder behind a flag is next.
 4. **A3 + A4** — remove torch/transformers/sentence-transformers/sklearn/spaCy; replace with NumPy + regex.
 5. **C1 + C2** — async + caching.
 6. **B1** — evaluate Container Apps scale-to-zero vs keeping B1.
@@ -206,7 +208,7 @@ PIPELINE_ASYNC=true
 | Deploy image | ~2.5–3 GB (CUDA torch) | ~300–500 MB |
 | Resident RAM | ~1.5–1.8 GB (BART) — at/over the B1 limit | ~150–300 MB |
 | Cold start | 60–120 s+ | 2–10 s |
-| Classification / request | 2 local BART passes (seconds, blocks 1 vCPU) | 1 offloaded LLM call (~0.3–1 s) |
+| Classification / request | 2 local BART passes (seconds, blocks 1 vCPU) | 1–2 JEV calls (≈1–4 s observed; falls back to the offline lexicon) |
 | Net effect | Pinned to B1+ because of RAM | Fits B1 comfortably; can scale to zero |
 
 ---
