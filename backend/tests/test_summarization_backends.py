@@ -177,3 +177,74 @@ def test_http_error_falls_back_to_extractive(nvidia_backend, monkeypatch):
     result = generate_summary(None, "handpump broken", "Water & Sanitation", "Kanke")
 
     assert result["description"] == "handpump broken"
+
+
+# ── Reasoning ("thinking") handling ─────────────────────────────────────────
+# Nemotron reasoning models enable thinking by default. The trace is returned in
+# message.reasoning_content and generated before the answer, so a small token
+# budget is spent entirely on reasoning and content comes back empty. The client
+# must therefore ask for thinking off (see nvidia_llm.thinking_mode).
+
+def reasoning_only_response(chars=400, finish_reason="length"):
+    return FakeResponse(200, {
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "reasoning_content": "x" * chars,
+            },
+            "finish_reason": finish_reason,
+        }],
+        "usage": {"prompt_tokens": 80, "completion_tokens": 150},
+    })
+
+
+def test_thinking_is_disabled_by_default(nvidia_backend, monkeypatch):
+    monkeypatch.delenv("NVIDIA_ENABLE_THINKING", raising=False)
+    calls = install_post(monkeypatch, [chat_response('{"title": "T", "description": "D"}')])
+
+    generate_summary(None, "text", "Healthcare", "Ranchi")
+
+    payload = calls[0]["json"]
+    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    # The NIM schema declares stream:true as the default; we need one JSON body.
+    assert payload["stream"] is False
+
+
+def test_thinking_can_be_requested(nvidia_backend, monkeypatch):
+    monkeypatch.setenv("NVIDIA_ENABLE_THINKING", "true")
+    calls = install_post(monkeypatch, [chat_response('{"title": "T", "description": "D"}')])
+
+    generate_summary(None, "text", "Healthcare", "Ranchi")
+
+    assert calls[0]["json"]["chat_template_kwargs"] == {"enable_thinking": True}
+
+
+def test_thinking_field_can_be_omitted_for_other_models(nvidia_backend, monkeypatch):
+    monkeypatch.setenv("NVIDIA_ENABLE_THINKING", "omit")
+    calls = install_post(monkeypatch, [chat_response('{"title": "T", "description": "D"}')])
+
+    generate_summary(None, "text", "Healthcare", "Ranchi")
+
+    assert "chat_template_kwargs" not in calls[0]["json"]
+
+
+def test_reasoning_only_reply_still_degrades_safely(nvidia_backend, monkeypatch):
+    install_post(monkeypatch, [reasoning_only_response()])
+
+    result = generate_summary(None, "doctor nahi hai", "Healthcare", "Ranchi")
+
+    assert result["model"] == "extractive"
+    assert result["title"] == "Healthcare Issue in Ranchi"
+
+
+def test_reasoning_only_reply_error_names_the_cause(nvidia_backend, monkeypatch):
+    install_post(monkeypatch, [reasoning_only_response()])
+
+    with pytest.raises(nvidia_llm.NvidiaLLMError) as excinfo:
+        nvidia_llm.chat([{"role": "user", "content": "hi"}], model="some/model")
+
+    assert "reasoning trace" in str(excinfo.value)
+    assert "thinking is still enabled" in str(excinfo.value)
+
