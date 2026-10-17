@@ -99,7 +99,7 @@ def generate_summary(
 ) -> dict:
     """
     Generates a canonical title and description for a Master Challenge.
-    Returns: {"title": "...", "description": "..."}
+    Returns: {"title": "...", "description": "...", "model": "<what served it>"}
     """
     # Deterministic Extractive Fallback
     fallback_desc = (new_evidence_text[:147] + "...") if len(new_evidence_text) > 150 else new_evidence_text
@@ -107,7 +107,8 @@ def generate_summary(
 
     fallback_result = {
         "title": fallback_title,
-        "description": fallback_desc
+        "description": fallback_desc,
+        "model": "extractive"
     }
 
     if SUMMARIZATION_BACKEND == "extractive":
@@ -141,4 +142,5 @@ New Evidence: {new_evidence_text}
         print("[summarization] Model returned an unparsable summary. Using extractive fallback.")
         return fallback_result
 
+    parsed["model"] = active_model()
     return parsed

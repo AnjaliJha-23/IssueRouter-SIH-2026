@@ -10,7 +10,7 @@ from pipeline.classification import classify
 from pipeline.location_extraction import extract_entities
 from pipeline.embeddings import get_embedding, embedding_tag
 from pipeline.deduplication import resolve
-from pipeline.summarization import generate_summary, active_model
+from pipeline.summarization import generate_summary
 from pipeline.priority_scoring import calculate_priority
 
 # Cap on hosted re-embedding per request. Existing rows embedded by an older
@@ -77,6 +77,7 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
     # 4. Dense Semantic Vector Embeddings (see pipeline.embeddings for the backend)
     embed_text = f"[{domain}] {clean_txt}"
     embedding = get_embedding(embed_text)
+    embedding_label = embedding_tag() if embedding else None
     
     # 5. Semantic Deduplication / Similarity Clustering
     candidate_records = db.query(Challenge).filter(
@@ -248,9 +249,9 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
     analysis.trend = pri_res["trend"]
     analysis.explanation = pri_res["explanation"]
     analysis.model_versions = {
-        "classification": class_res.get("model_version", "facebook/bart-large-mnli"),
-        "embeddings": embedding_tag(),
-        "summarization": active_model()
+        "classification": class_res.get("model_version", "unknown"),
+        "embeddings": embedding_label,
+        "summarization": summary_res.get("model"),
     }
     analysis.updated_at = datetime.utcnow()
     
@@ -337,6 +338,11 @@ def analyze_challenge(challenge_id: str, db: Session) -> dict:
     challenge.title = summary_res.get("title") or challenge.title
     challenge.ai_generated_summary = summary_res.get("description") or challenge.ai_generated_summary
     challenge.domain = domain
+
+    # Report the embedding model that produced this challenge's stored vectors,
+    # if any. This function does not create new vectors.
+    stored_vector = next((e for e in evidences if e.embedding_json), None)
+    embedding_label = stored_vector.embedding_model if stored_vector else None
     if district:
         challenge.district = district
     if block:
@@ -373,9 +379,9 @@ def analyze_challenge(challenge_id: str, db: Session) -> dict:
     analysis.trend = pri_res["trend"]
     analysis.explanation = pri_res["explanation"]
     analysis.model_versions = {
-        "classification": class_res.get("model_version", "facebook/bart-large-mnli"),
-        "embeddings": embedding_tag(),
-        "summarization": active_model()
+        "classification": class_res.get("model_version", "unknown"),
+        "embeddings": embedding_label,
+        "summarization": summary_res.get("model"),
     }
     analysis.updated_at = datetime.utcnow()
     

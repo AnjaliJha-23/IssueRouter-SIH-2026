@@ -74,6 +74,7 @@ def test_extractive_backend_is_deterministic_offline(monkeypatch):
     assert result == {
         "title": "Water & Sanitation Issue in Kanke, Ranchi",
         "description": "Broken handpump in Kanke",
+        "model": "extractive",
     }
     assert calls == []
 
@@ -99,6 +100,7 @@ def test_request_payload_matches_nim_chat_contract(nvidia_backend, monkeypatch):
     assert result == {
         "title": "PHC without doctor",
         "description": "Namkum PHC has no doctor for 3 months.",
+        "model": summarization.SUMMARIZATION_MODEL,
     }
     assert len(calls) == 1
     assert calls[0]["url"].endswith("/chat/completions")
@@ -150,7 +152,9 @@ def test_retryable_status_is_retried(nvidia_backend, monkeypatch):
 
     result = generate_summary(None, "text", "Healthcare", "Ranchi")
 
-    assert result == {"title": "T", "description": "D"}
+    assert result["title"] == "T"
+    assert result["description"] == "D"
+    assert result["model"] == summarization.SUMMARIZATION_MODEL
     assert len(calls) == 2
 
 
