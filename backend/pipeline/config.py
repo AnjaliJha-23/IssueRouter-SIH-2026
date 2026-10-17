@@ -28,6 +28,35 @@ CLASSIFICATION_THRESHOLDS = {
     "subdomain_confidence_min": 0.40
 }
 
+# Decision-Model (TypeSafe JEV) Rubrics
+# Human-readable criteria attached to each domain option. These disambiguate
+# domains that share vocabulary (e.g. "water" in Healthcare vs Water &
+# Sanitation) and measurably improve Jev's Choice accuracy. Keys must stay in
+# sync with DOMAINS above.
+DOMAIN_CRITERIA = {
+    "Healthcare": "Hospitals, health centres, PHC/CHC, doctors, nurses, medicines, ambulances, disease and treatment",
+    "Education": "Schools, colleges, universities, teachers, students, exams, scholarships, mid-day meals",
+    "Water & Sanitation": "Drinking water, taps, handpumps, wells, pipelines, toilets, sewage, drains, garbage collection",
+    "Environment": "Air/water/noise pollution, forests, trees, rivers, illegal mining, wildlife, land degradation",
+    "Energy": "Electricity supply, power cuts, load shedding, transformers, meters, billing, street lights, solar",
+    "Urban Development": "Municipal services, housing, slums, encroachment, parks, urban footpaths and layout",
+    "Accessibility": "Disability access: ramps, wheelchairs, Braille, sign language, accessibility of public buildings",
+    "Public Administration": "Certificates, ration cards, pensions, welfare schemes, land records, official corruption",
+    "Rural Livelihoods": "Farming, crops, MGNREGA wages, labour, livestock, fishing, rural employment",
+    "Infrastructure/Transport": "Roads, bridges, culverts, buses, railways, traffic signals, public transport",
+}
+
+# Ordered severity rubric for the Jev Score question (2-10 levels allowed).
+# Index 0 is least severe; the last level is most severe. Jev returns a
+# probability-weighted position on this scale.
+SEVERITY_LEVELS = [
+    "Minor inconvenience with no health or safety impact",
+    "Noticeable problem affecting daily routine",
+    "Significant hardship for the affected community",
+    "Serious risk to health or safety",
+    "Life-threatening emergency requiring immediate action",
+]
+
 # Summarization / External LLM Configuration
 # Single source of truth for the canonical-summary model. Overridable at runtime
 # via the GROQ_MODEL environment variable.
