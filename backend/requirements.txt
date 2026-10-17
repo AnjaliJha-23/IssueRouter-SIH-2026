@@ -11,17 +11,11 @@ psycopg2-binary>=2.9.9
 # Data validation
 pydantic>=2.6.0
 
-# NLP pipeline & ML models (Preserved for CPU inference)
-# For CPU-only deployments on Linux, install torch with:
-# pip install torch>=2.2.0 --extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.2.0
-transformers>=4.40.0
-sentence-transformers>=2.7.0
-scikit-learn>=1.4.0
+# NLP pipeline
+# Classification (TypeSafe JEV), summarization and embeddings (NVIDIA NIM) all
+# run as hosted inference, so this image ships no model weights. numpy is only
+# used for the cosine math in semantic deduplication.
 numpy>=1.26.0
-scipy>=1.13.0
-huggingface-hub>=0.22.0
-tokenizers>=0.19.0
 spacy>=3.7.0
 
 # Integrations & Utilities
@@ -29,4 +23,10 @@ python-dotenv>=1.0.0
 httpx>=0.27.0
 pyjwt>=2.8.0
 python-multipart>=0.0.9
-groq>=0.4.2
+
+# ── Optional, local development only ──────────────────────────────────────────
+# Each of these pulls hundreds of MB (torch alone is ~500 MB+) and is deliberately
+# NOT installed here. Install only what a specific local backend needs:
+#   EMBEDDING_BACKEND=local_minilm  -> pip install sentence-transformers
+#   CLASSIFIER_BACKEND=transformers -> pip install torch transformers
+#   SUMMARIZATION_BACKEND=groq      -> pip install groq

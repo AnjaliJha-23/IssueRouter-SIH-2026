@@ -31,9 +31,9 @@ else {
     exit 1
 }
 
-# Verify Groq installation
-Write-Host "[setup] Checking Groq package..." -ForegroundColor Cyan
-python -c "from groq import Groq; print('Groq package installed successfully')"
+# Verify hosted-provider transport (TypeSafe JEV and NVIDIA NIM both ride httpx)
+Write-Host "[setup] Checking httpx..." -ForegroundColor Cyan
+python -c "import httpx; print('httpx package installed successfully')"
 
 # Seed the database
 Write-Host "[seed] Seeding database with Jharkhand Societal Innovation Clusters..." -ForegroundColor Cyan
