@@ -28,6 +28,8 @@ from db.models import (
     Proposal,
 )
 
+from pipeline.embeddings import embedding_tag
+
 
 random.seed(42)
 
@@ -863,7 +865,7 @@ def seed():
                 explanation=f"Zero-shot classification identified {ch.domain} ({ch.department}) with high confidence. Priority computed from {ch.complaint_count} cross-verified civic signals.",
                 model_versions={
                     "classification": "facebook/bart-large-mnli",
-                    "embeddings": "sentence-transformers/all-MiniLM-L6-v2",
+                    "embeddings": embedding_tag(),
                     "summarization": "groq/compound-mini"
                 },
                 updated_at=ch.created_at

@@ -1,6 +1,28 @@
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
+
 from pipeline.config import DEDUP_THRESHOLDS
+
+
+def _unit_vector(vector) -> np.ndarray | None:
+    """
+    L2-normalise a vector, or return None when it cannot be compared.
+
+    Returning None (rather than raising) keeps malformed or missing vectors
+    from turning into a failed citizen submission.
+    """
+    if vector is None:
+        return None
+    try:
+        arr = np.asarray(vector, dtype=np.float64).ravel()
+    except (TypeError, ValueError):
+        return None
+    if arr.size == 0 or not np.all(np.isfinite(arr)):
+        return None
+    norm = float(np.linalg.norm(arr))
+    if norm == 0.0:
+        return None
+    return arr / norm
+
 
 def resolve(
     new_embedding: list[float],
@@ -39,7 +61,15 @@ def resolve(
             "candidate_relations": []
         }
     
-    new_emb = np.array([new_embedding])
+    new_emb = _unit_vector(new_embedding)
+    if new_emb is None:
+        # No usable vector for the incoming evidence, so dedup cannot run.
+        return {
+            "action": "new_challenge",
+            "matched_challenge_id": None,
+            "similarity_score": 0.0,
+            "candidate_relations": []
+        }
     
     best_match_id = None
     best_score = 0.0
@@ -49,12 +79,17 @@ def resolve(
     flag_related = DEDUP_THRESHOLDS["flag_related"]
     
     for cluster in filtered_candidates:
-        canonical_emb = cluster.get("canonical_embedding")
-        if not canonical_emb:
+        centroid = _unit_vector(cluster.get("canonical_embedding"))
+        if centroid is None:
             continue
-            
-        centroid = np.array([canonical_emb])
-        sim = float(cosine_similarity(new_emb, centroid)[0][0])
+        if centroid.shape != new_emb.shape:
+            # Produced by a different embedding model or dimension: the two
+            # vectors live in unrelated spaces, so a score would be noise.
+            # Skip instead of crashing on a shape mismatch.
+            continue
+        
+        # Both vectors are unit length, so the dot product is the cosine.
+        sim = float(np.dot(new_emb, centroid))
         
         if sim > best_score:
             best_score = sim

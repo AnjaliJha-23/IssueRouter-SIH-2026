@@ -18,7 +18,7 @@ from pipeline.priority_scoring import calculate_priority
 from pipeline.deduplication import resolve
 from pipeline.summarization import generate_summary
 from pipeline.classification import classify
-from pipeline.embeddings import get_embedding
+from pipeline.embeddings import EMBEDDING_DIM, get_embedding
 
 # Sample test cases representing multi-source inputs across Jharkhand
 TEST_CASES = [
@@ -58,7 +58,7 @@ def run_pipeline_tests():
     print("=" * 75)
 
     # Step 1: Model warmup
-    print("\n[Stage 1/3] Warming up all models (BART, spaCy, Sentence-Transformers)...")
+    print("\n[Stage 1/3] Warming up all models (classifier, spaCy NER, embeddings)...")
     t0 = time.time()
     load_all_models()
     print(f"  --> Models loaded successfully in {time.time() - t0:.2f}s\n")
@@ -87,10 +87,10 @@ def run_pipeline_tests():
     print(f"[PASSED] (Title: '{sum_res['title']}')")
 
     # 2.4 Embeddings & Semantic Similarity
-    print("  • Sentence-Transformers Embeddings (384d)...", end=" ")
+    print(f"  • Embeddings ({EMBEDDING_DIM}d)...", end=" ")
     emb = get_embedding("[Healthcare] Rural clinic lacks doctors")
-    assert len(emb) == 384
-    print("[PASSED] (384-dimensional vector generated)")
+    assert len(emb) == EMBEDDING_DIM
+    print(f"[PASSED] ({EMBEDDING_DIM}-dimensional vector generated)")
 
     # Step 3: End-to-End Orchestrator Ingestion & Multi-Source Convergence
     print("\n[Stage 3/3] Testing End-to-End Ingestion & Multi-Source Deduplication:")

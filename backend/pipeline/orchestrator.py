@@ -8,10 +8,15 @@ from ingestion.normaliser import clean_text
 
 from pipeline.classification import classify
 from pipeline.location_extraction import extract_entities
-from pipeline.embeddings import get_embedding
+from pipeline.embeddings import get_embedding, embedding_tag
 from pipeline.deduplication import resolve
 from pipeline.summarization import generate_summary
 from pipeline.priority_scoring import calculate_priority
+
+# Cap on hosted re-embedding per request. Existing rows embedded by an older
+# model are refreshed lazily, and each refresh is a network round trip, so a
+# large backlog must not turn one submission into a slow request.
+MAX_REEMBEDS_PER_REQUEST = 25
 
 def load_all_models():
     """Call this at FastAPI startup to warm all models before first request."""
@@ -69,7 +74,7 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
     if not resolved_location:
         resolved_location = loc_hint or "Jharkhand"
     
-    # 4. Dense Semantic Vector Embeddings (384d)
+    # 4. Dense Semantic Vector Embeddings (see pipeline.embeddings for the backend)
     embed_text = f"[{domain}] {clean_txt}"
     embedding = get_embedding(embed_text)
     
@@ -84,17 +89,41 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
     candidate_records = candidate_records.all()
     
     candidates_for_dedup = []
+    reembedded = 0
+    current_tag = embedding_tag()
     for c in candidate_records:
         latest_ev = db.query(ChallengeEvidence).filter(ChallengeEvidence.challenge_id == c.id).first()
         canonical_emb = latest_ev.embedding_json if latest_ev else None
-        
+
+        # Vectors are only comparable within one embedding model/dimension. If
+        # this candidate carries a missing or stale vector, re-embed its text
+        # once and persist the result, so old rows rejoin dedup instead of
+        # being silently ignored after a model change.
+        stale = latest_ev is not None and (
+            latest_ev.embedding_json is None or latest_ev.embedding_model != current_tag
+        )
+        if stale and reembedded < MAX_REEMBEDS_PER_REQUEST:
+            refreshed = get_embedding(f"[{c.domain}] {latest_ev.clean_text}")
+            reembedded += 1
+            if refreshed is not None:
+                latest_ev.embedding_json = refreshed
+                latest_ev.embedding_model = current_tag
+                db.add(latest_ev)
+            canonical_emb = refreshed
+
         candidates_for_dedup.append({
             "id": c.id,
             "domain": c.domain,
             "district": c.district,
             "canonical_embedding": canonical_emb
         })
-        
+
+    if reembedded:
+        db.commit()
+        print(f"[dedup] Re-embedded {reembedded} candidate challenge(s) into {current_tag}.")
+        if reembedded >= MAX_REEMBEDS_PER_REQUEST:
+            print("[dedup] Re-embed cap reached; remaining candidates stay unmatched this request.")
+
     dedup_res = resolve(embedding, domain, district, candidates_for_dedup)
     action = dedup_res["action"]
     matched_id = dedup_res["matched_challenge_id"]
@@ -139,6 +168,7 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
         raw_text=raw_text,
         clean_text=clean_txt,
         embedding_json=embedding,
+        embedding_model=embedding_tag() if embedding else None,
         submitted_lat=res_lat,
         submitted_lng=res_lng,
         created_at=datetime.utcnow()
@@ -219,7 +249,7 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
     analysis.explanation = pri_res["explanation"]
     analysis.model_versions = {
         "classification": class_res.get("model_version", "facebook/bart-large-mnli"),
-        "embeddings": "sentence-transformers/all-MiniLM-L6-v2",
+        "embeddings": embedding_tag(),
         "summarization": "groq/compound-mini"
     }
     analysis.updated_at = datetime.utcnow()
@@ -344,7 +374,7 @@ def analyze_challenge(challenge_id: str, db: Session) -> dict:
     analysis.explanation = pri_res["explanation"]
     analysis.model_versions = {
         "classification": class_res.get("model_version", "facebook/bart-large-mnli"),
-        "embeddings": "sentence-transformers/all-MiniLM-L6-v2",
+        "embeddings": embedding_tag(),
         "summarization": "groq/compound-mini"
     }
     analysis.updated_at = datetime.utcnow()

@@ -12,3 +12,10 @@ if BACKEND_DIR not in sys.path:
 if os.getenv("JEV_LIVE_TEST", "").strip().lower() not in ("1", "true", "yes"):
     os.environ["CLASSIFIER_BACKEND"] = "keyword"
     os.environ.pop("TYPESAFE_API_KEY", None)
+
+# Embedding tests are pinned to the local model for the same reason: the hosted
+# NVIDIA backend needs a key and a network round trip. Set EMBED_LIVE_TEST=1
+# (plus NVIDIA_API_KEY) to exercise the hosted backend instead.
+if os.getenv("EMBED_LIVE_TEST", "").strip().lower() not in ("1", "true", "yes"):
+    os.environ["EMBEDDING_BACKEND"] = "local_minilm"
+    os.environ.pop("NVIDIA_API_KEY", None)

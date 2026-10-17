@@ -107,11 +107,19 @@ def startup_event():
                     conn.exec_driver_sql("ALTER TABLE challenge_evidence ADD COLUMN media_urls JSON")
                     conn.commit()
                     print("[IssueRouter-SIH] Migrated challenge_evidence table: added media_urls column.")
+
+            # 4. ChallengeEvidence embedding_model migration (dimension-versioned vectors)
+            if "challenge_evidence" in table_names:
+                ev_cols = [c["name"] for c in inspector.get_columns("challenge_evidence")]
+                if "embedding_model" not in ev_cols:
+                    conn.exec_driver_sql("ALTER TABLE challenge_evidence ADD COLUMN embedding_model VARCHAR")
+                    conn.commit()
+                    print("[IssueRouter-SIH] Migrated challenge_evidence table: added embedding_model column.")
     except Exception as e:
         print("[IssueRouter-SIH] Startup column check notice:", e)
     print("[IssueRouter-SIH] DB ready.")
 
-    # 4. Optional pre-warming of full ML pipeline models during startup
+    # 5. Optional pre-warming of full ML pipeline models during startup
     if os.getenv("WARM_MODELS_ON_STARTUP", "false").lower() in ("1", "true", "yes"):
         try:
             print("[IssueRouter-SIH] Pre-warming full ML models into memory...")
