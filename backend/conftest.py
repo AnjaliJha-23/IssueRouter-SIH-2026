@@ -19,3 +19,9 @@ if os.getenv("JEV_LIVE_TEST", "").strip().lower() not in ("1", "true", "yes"):
 if os.getenv("EMBED_LIVE_TEST", "").strip().lower() not in ("1", "true", "yes"):
     os.environ["EMBEDDING_BACKEND"] = "local_minilm"
     os.environ.pop("NVIDIA_API_KEY", None)
+
+# Summarization runs the deterministic extractive backend in tests, so no test
+# depends on a hosted LLM being reachable or on quota.
+if os.getenv("SUMMARIZE_LIVE_TEST", "").strip().lower() not in ("1", "true", "yes"):
+    os.environ["SUMMARIZATION_BACKEND"] = "extractive"
+    os.environ.pop("NVIDIA_API_KEY", None)

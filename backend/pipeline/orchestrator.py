@@ -10,7 +10,7 @@ from pipeline.classification import classify
 from pipeline.location_extraction import extract_entities
 from pipeline.embeddings import get_embedding, embedding_tag
 from pipeline.deduplication import resolve
-from pipeline.summarization import generate_summary
+from pipeline.summarization import generate_summary, active_model
 from pipeline.priority_scoring import calculate_priority
 
 # Cap on hosted re-embedding per request. Existing rows embedded by an older
@@ -250,7 +250,7 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
     analysis.model_versions = {
         "classification": class_res.get("model_version", "facebook/bart-large-mnli"),
         "embeddings": embedding_tag(),
-        "summarization": "groq/compound-mini"
+        "summarization": active_model()
     }
     analysis.updated_at = datetime.utcnow()
     
@@ -375,7 +375,7 @@ def analyze_challenge(challenge_id: str, db: Session) -> dict:
     analysis.model_versions = {
         "classification": class_res.get("model_version", "facebook/bart-large-mnli"),
         "embeddings": embedding_tag(),
-        "summarization": "groq/compound-mini"
+        "summarization": active_model()
     }
     analysis.updated_at = datetime.utcnow()
     

@@ -59,8 +59,8 @@ SEVERITY_LEVELS = [
 
 # Summarization / External LLM Configuration
 # Single source of truth for the canonical-summary model. Overridable at runtime
-# via the GROQ_MODEL environment variable.
-SUMMARIZATION_MODEL = "groq/compound-mini"
+# via the NVIDIA_MODEL environment variable (SUMMARIZATION_BACKEND=nvidia).
+SUMMARIZATION_MODEL = "qwen/qwen2.5-7b-instruct"
 
 # Deduplication / Clustering Configuration
 DEDUP_THRESHOLDS = {
