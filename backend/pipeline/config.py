@@ -28,6 +28,11 @@ CLASSIFICATION_THRESHOLDS = {
     "subdomain_confidence_min": 0.40
 }
 
+# Summarization / External LLM Configuration
+# Single source of truth for the canonical-summary model. Overridable at runtime
+# via the GROQ_MODEL environment variable.
+SUMMARIZATION_MODEL = "groq/compound-mini"
+
 # Deduplication / Clustering Configuration
 DEDUP_THRESHOLDS = {
     "auto_link": 0.80,         # >= this score auto-links evidence to challenge

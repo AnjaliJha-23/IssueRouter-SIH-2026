@@ -2,6 +2,8 @@ import os
 import json
 from dotenv import load_dotenv
 
+from pipeline.config import SUMMARIZATION_MODEL
+
 # Search and load .env from backend directory and workspace root
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
@@ -60,7 +62,7 @@ Location: {location}
 New Evidence: {new_evidence_text}
 """
 
-    model_name = os.getenv("GROQ_MODEL", "groq/compound-mini")
+    model_name = os.getenv("GROQ_MODEL", SUMMARIZATION_MODEL)
     try:
         response = client.chat.completions.create(
             model=model_name,
