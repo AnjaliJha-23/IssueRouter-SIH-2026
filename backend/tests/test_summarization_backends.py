@@ -115,13 +115,17 @@ def test_request_payload_matches_nim_chat_contract(nvidia_backend, monkeypatch):
 
 
 def test_nvidia_model_env_override_is_used(nvidia_backend, monkeypatch):
-    monkeypatch.setenv("NVIDIA_MODEL", "qwen/qwen2.5-7b-instruct")
+    # Deliberately different from config.SUMMARIZATION_MODEL, so this proves the
+    # override rather than restating the default.
+    override = "mistralai/mistral-7b-instruct-v0.3"
+    assert override != summarization.SUMMARIZATION_MODEL
+    monkeypatch.setenv("NVIDIA_MODEL", override)
     calls = install_post(monkeypatch, [chat_response('{"title": "T", "description": "D"}')])
 
     generate_summary(None, "text", "Healthcare", "Ranchi")
 
-    assert calls[0]["json"]["model"] == "qwen/qwen2.5-7b-instruct"
-    assert summarization.active_model() == "qwen/qwen2.5-7b-instruct"
+    assert calls[0]["json"]["model"] == override
+    assert summarization.active_model() == override
 
 
 def test_markdown_wrapped_json_is_parsed(nvidia_backend, monkeypatch):
