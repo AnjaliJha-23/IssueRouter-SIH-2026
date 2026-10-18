@@ -1,8 +1,11 @@
 """
 api/challenges.py — CRUD & NLP Pipeline integration routes for Challenges & Evidence (SIH 2026).
 """
-import uuid
 import json
+import queue
+import threading
+import time
+import uuid
 from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
@@ -10,7 +13,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional
 
-from db.database import get_db
+from db.database import get_db, SessionLocal
 from db.models import (
     Challenge,
     ChallengeEvidence,
@@ -37,9 +40,71 @@ from db.schemas import (
     PipelineProcessResponse
 )
 from api.auth import get_current_user, get_optional_current_user, require_roles
-from pipeline.orchestrator import process_evidence, analyze_challenge
+from pipeline.orchestrator import process_evidence, analyze_challenge, refresh_summary
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
+
+
+def run_deferred_summary(job: dict) -> None:
+    """
+    Apply a hosted summary to a submission that has already been answered with
+    its deterministic extractive summary.
+
+    Runs on the summarization worker (see :func:`schedule_summary`) rather than on
+    a request thread, so it opens its own session and never raises -- the
+    submission itself succeeded, and a summarization failure must not turn into
+    an error.
+    """
+    started = time.time()
+    db = SessionLocal()
+    try:
+        applied = refresh_summary(job, db)
+        if applied:
+            print(
+                f"[summarization] Background summary for {applied['challenge_id']} "
+                f"served by {applied['model']} in {time.time() - started:.1f}s."
+            )
+    except Exception as exc:  # noqa: BLE001 — a background task must never raise
+        print(
+            f"[summarization] Background summary for {job.get('challenge_id')} failed: "
+            f"{exc}. Keeping the extractive summary."
+        )
+    finally:
+        db.close()
+
+
+# ── Deferred summarization queue ───────────────────────────────────────────
+#
+# Hosted summaries run on a single worker thread rather than in parallel.
+# Measured against the free NIM tier, concurrent chat completions do not share
+# nicely: overlapping calls made the later one fail every retry and fall back to
+# extractive, while the same calls issued one at a time succeeded. One worker
+# also keeps a burst of submissions from occupying the request threadpool, which
+# is what a plain locking background task would do.
+_summary_queue: "queue.Queue[dict]" = queue.Queue()
+_summary_worker_lock = threading.Lock()
+_summary_worker_started = False
+
+
+def _summary_worker() -> None:
+    while True:
+        job = _summary_queue.get()
+        try:
+            run_deferred_summary(job)
+        except Exception as exc:  # noqa: BLE001 — the worker must survive anything
+            print(f"[summarization] Worker notice: {exc}")
+        finally:
+            _summary_queue.task_done()
+
+
+def schedule_summary(job: dict) -> None:
+    """Queue a hosted summarization, starting the worker the first time."""
+    global _summary_worker_started
+    with _summary_worker_lock:
+        if not _summary_worker_started:
+            threading.Thread(target=_summary_worker, name="summary-worker", daemon=True).start()
+            _summary_worker_started = True
+    _summary_queue.put(job)
 
 @router.get("/", response_model=List[ChallengeOut])
 def list_challenges(
@@ -169,6 +234,11 @@ def create_challenge(
     """
     Creates/links a challenge by running input data through the full NLP Pipeline
     (Cleaning, Domain Classification via JEV, Location Extraction, Embeddings, Deduplication, Canonical Summarization, and Priority Scoring).
+
+    Summarization is split in two so the citizen never waits on a hosted model:
+    the response carries the deterministic extractive summary immediately, and a
+    background worker applies the hosted summary a few seconds later, updating
+    both the challenge text and `analysis.model_versions.summarization`.
     """
     if not req.description or len(req.description.strip()) < 5:
         raise HTTPException(status_code=400, detail="Please provide a description of the issue.")
@@ -182,8 +252,14 @@ def create_challenge(
         "submitted_lng": req.lng
     }
     
-    # Execute NLP pipeline orchestrator
-    pipeline_res = process_evidence(evidence_payload, db)
+    # Execute NLP pipeline orchestrator. Summarization is handed to the
+    # background worker; everything else (classification, location, embeddings,
+    # dedup, priority) stays on the request path.
+    pipeline_res = process_evidence(
+        evidence_payload,
+        db,
+        defer_summary=schedule_summary,
+    )
     challenge_id = pipeline_res.get("challenge_id")
     
     challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()

@@ -95,11 +95,18 @@ def generate_summary(
     existing_summary: dict | None,
     new_evidence_text: str,
     domain: str,
-    location: str
+    location: str,
+    allow_hosted: bool = True,
 ) -> dict:
     """
     Generates a canonical title and description for a Master Challenge.
+
     Returns: {"title": "...", "description": "...", "model": "<what served it>"}
+
+    ``allow_hosted=False`` answers with the deterministic extractive summary and
+    never touches the network. That is what a latency-sensitive caller wants: it
+    returns immediately, and the hosted summary is produced afterwards by
+    ``pipeline.orchestrator.refresh_summary``.
     """
     # Deterministic Extractive Fallback
     fallback_desc = (new_evidence_text[:147] + "...") if len(new_evidence_text) > 150 else new_evidence_text
@@ -111,7 +118,7 @@ def generate_summary(
         "model": "extractive"
     }
 
-    if SUMMARIZATION_BACKEND == "extractive":
+    if SUMMARIZATION_BACKEND == "extractive" or not allow_hosted:
         return fallback_result
 
     context = ""

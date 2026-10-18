@@ -243,6 +243,27 @@ def test_reasoning_only_reply_still_degrades_safely(nvidia_backend, monkeypatch)
     assert result["title"] == "Healthcare Issue in Ranchi"
 
 
+def test_allow_hosted_false_answers_extractively_without_calling_the_model(nvidia_backend, monkeypatch):
+    # The deferred-submission path depends on this: it must return the
+    # deterministic summary with no network round trip at all.
+    calls = install_post(monkeypatch, [chat_response('{"title": "ignored", "description": "ignored"}')])
+
+    result = generate_summary(
+        None,
+        "Broken handpump in Kanke",
+        "Water & Sanitation",
+        "Kanke, Ranchi",
+        allow_hosted=False,
+    )
+
+    assert result == {
+        "title": "Water & Sanitation Issue in Kanke, Ranchi",
+        "description": "Broken handpump in Kanke",
+        "model": "extractive",
+    }
+    assert calls == []
+
+
 def test_reasoning_only_reply_error_names_the_cause(nvidia_backend, monkeypatch):
     install_post(monkeypatch, [reasoning_only_response()])
 

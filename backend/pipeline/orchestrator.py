@@ -1,6 +1,7 @@
 import uuid
 import json
 from datetime import datetime
+from typing import Callable
 from sqlalchemy.orm import Session
 
 from db.models import Challenge, ChallengeEvidence, ChallengeAnalysis, ChallengeRelation
@@ -29,7 +30,11 @@ def load_all_models():
     load_embedder()
     print("[orchestrator] All models ready.")
 
-def process_evidence(evidence_data: dict, db: Session) -> dict:
+def process_evidence(
+    evidence_data: dict,
+    db: Session,
+    defer_summary: Callable[[dict], None] | None = None,
+) -> dict:
     """
     Process incoming evidence (citizen submission, tweet, field report)
     through the complete NLP pipeline and persist results to the database.
@@ -43,6 +48,13 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
         "title": str | None,
         "location": str | None
     }
+
+    ``defer_summary`` is optional. When it is given, the summary stored now is
+    the deterministic extractive one and the hosted summary is produced later by
+    :func:`refresh_summary` -- a hosted model costs ~5-15s, which is far too long
+    to hold a citizen's submission open. The callback receives the job dict that
+    ``refresh_summary`` expects. Callers that omit it keep the fully synchronous
+    behaviour.
     """
     raw_text = evidence_data.get("raw_text") or evidence_data.get("description") or ""
     title_hint = evidence_data.get("title")
@@ -191,6 +203,10 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
     db.commit()
     
     # 7. Multi-Source Canonical Summarization
+    #
+    # A hosted summary costs ~5-15s, far too long to hold a citizen's submission
+    # open, so latency-sensitive callers pass `defer_summary` and take the
+    # deterministic extractive summary here instead.
     all_evidences = db.query(ChallengeEvidence).filter(ChallengeEvidence.challenge_id == challenge.id).all()
     combined_ev_text = "\n".join([e.clean_text for e in all_evidences])
     
@@ -199,7 +215,13 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
         "description": challenge.ai_generated_summary or challenge.official_description or ""
     } if challenge.ai_generated_summary else None
     
-    summary_res = generate_summary(existing_summary, combined_ev_text, domain, challenge.location)
+    summary_res = generate_summary(
+        existing_summary,
+        combined_ev_text,
+        domain,
+        challenge.location,
+        allow_hosted=defer_summary is None,
+    )
     challenge.title = summary_res.get("title") or challenge.title
     challenge.ai_generated_summary = summary_res.get("description") or challenge.ai_generated_summary
     
@@ -259,6 +281,18 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
     db.refresh(challenge)
     db.refresh(analysis)
     
+    # Hand the hosted summarization to the caller now that the extractive
+    # summary and the audit row are committed. In production the callback queues
+    # the job for the summarization worker, which answers on its own thread.
+    if defer_summary is not None:
+        defer_summary({
+            "challenge_id": challenge.id,
+            "existing_summary": existing_summary,
+            "evidence_text": combined_ev_text,
+            "domain": domain,
+            "location": challenge.location,
+        })
+
     return {
         "status": "success",
         "action": action,
@@ -287,6 +321,70 @@ def process_evidence(evidence_data: dict, db: Session) -> dict:
             "model_versions": analysis.model_versions,
             "updated_at": analysis.updated_at
         }
+    }
+
+
+def refresh_summary(job: dict, db: Session) -> dict | None:
+    """
+    Replace a challenge's deterministic extractive summary with a hosted one.
+
+    This is the second half of the deferred summarization started by
+    :func:`process_evidence`. It runs on the summarization worker (see
+    ``api.challenges.run_deferred_summary``) rather than on a request thread, so a
+    slow or unavailable model never delays a citizen's submission.
+
+    Evidence is re-read here rather than replayed verbatim from the job, so if a
+    second submission arrives for the same challenge while the first job is still
+    queued, the later job still summarizes the newer evidence --- the outcome does
+    not depend on the order the jobs happen to run in.
+
+    Returns the applied summary, or ``None`` when the challenge no longer exists
+    or the model was unavailable. In the ``None`` case the extractive summary
+    already stored at submission time stands, and nothing is overwritten.
+    """
+    challenge = db.query(Challenge).filter(Challenge.id == job.get("challenge_id")).first()
+    if challenge is None:
+        return None
+
+    evidences = db.query(ChallengeEvidence).filter(
+        ChallengeEvidence.challenge_id == challenge.id
+    ).all()
+    evidence_text = (
+        "\n".join(e.clean_text for e in evidences if e.clean_text)
+        or job.get("evidence_text")
+        or ""
+    )
+
+    summary_res = generate_summary(
+        job.get("existing_summary"),
+        evidence_text,
+        job.get("domain") or challenge.domain,
+        challenge.location,
+    )
+
+    model = summary_res.get("model")
+    if not model or model == "extractive":
+        # The model was unavailable, so this is the same deterministic summary
+        # that was already stored: leave the challenge and its audit row alone
+        # rather than rewriting them with identical values.
+        return None
+
+    challenge.title = summary_res.get("title") or challenge.title
+    challenge.ai_generated_summary = summary_res.get("description") or challenge.ai_generated_summary
+
+    analysis = db.query(ChallengeAnalysis).filter(ChallengeAnalysis.challenge_id == challenge.id).first()
+    if analysis is not None:
+        versions = dict(analysis.model_versions or {})
+        versions["summarization"] = model
+        analysis.model_versions = versions
+        analysis.updated_at = datetime.utcnow()
+
+    db.commit()
+    return {
+        "challenge_id": challenge.id,
+        "title": challenge.title,
+        "description": challenge.ai_generated_summary,
+        "model": model,
     }
 
 
