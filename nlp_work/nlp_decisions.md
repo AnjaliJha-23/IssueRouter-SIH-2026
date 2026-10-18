@@ -56,6 +56,20 @@ This file documents all architectural decisions, design contracts, threshold tun
   - `requirements.txt`: dropped `torch`, `transformers`, `sentence-transformers`, `scikit-learn`, `scipy`, `huggingface-hub`, `tokenizers` and `groq`; all are now documented optional local-dev extras.
 - **Impact:** the default deployment ships no model weights and no torch runtime, and `analysis.model_versions` records the backend that actually served each stage (including `"extractive"`, and `null` embeddings when no vector was produced).
 
+### [2026-10-18] — Deferred summarization for instant submissions
+
+#### 8. Citizen submissions answer instantly; the hosted summary lands afterwards
+- **Motivation:** a hosted summary costs ~5-15s and can take far longer, and it sat on the request path of `POST /api/challenges/`, so every citizen waited on an external model before getting a response.
+- **Change:**
+  - `summarization.generate_summary(..., allow_hosted=False)` returns the deterministic extractive summary without touching the network — the "first half" of a deferred submission.
+  - `orchestrator.process_evidence(..., defer_summary=...)` uses it and hands the caller a job dict describing what the hosted call needs. Callers that omit the argument (seeders, simulations, `POST /api/challenges/ingest`) keep the fully synchronous behaviour, so nothing else changed speed.
+  - `orchestrator.refresh_summary(job, db)` performs the hosted call and persists the resulting title, description and `analysis.model_versions["summarization"]`. It re-reads the evidence rather than replaying the job's copy, so if a second submission lands while the first job is queued, the newer evidence still wins regardless of the order the jobs run in.
+  - `api.challenges.schedule_summary` / `_summary_worker` run those jobs on **one** worker thread, started lazily on first use.
+- **One worker is not incidental.** Measured against the free NIM tier, concurrent chat completions do not share: with three submissions in flight, all three failed every retry (~91s each) and stayed extractive, while the same calls issued one at a time all succeeded. A single worker also keeps a burst of submissions from occupying the request threadpool, which a locking background task would do.
+- **Measured end to end over HTTP** against a throwaway SQLite database and the live endpoint: submission answered in ~2.2-2.8s (previously ~13s) carrying the extractive title; a canary upgraded after 17.3s; three submissions fired back to back upgraded at +32.7s / +48.2s / +85.9s, all four served by `nvidia/nemotron-3.5-lightning-30b-a3b` with no fallbacks in the log.
+- **Impact:** the submission path no longer depends on the hosted model at all. The response is always the deterministic summary, and it is replaced in place once the model answers. Any failure in the background path leaves the extractive summary standing, so the fallback contract is unchanged. `analysis.model_versions["summarization"]` reads `extractive` until the hosted summary lands.
+- **Caveat:** free-tier NIM latency is highly variable (observed 4-56s for a single call). If the queue cannot keep up with a burst, later submissions keep their extractive summary; raising `NVIDIA_TIMEOUT` trades a longer per-job wait for fewer fallbacks.
+
 ---
 
 ## 🏛️ Pipeline Module Architectural Reference
@@ -67,9 +81,10 @@ This file documents all architectural decisions, design contracts, threshold tun
 | `embeddings.py` | Dense semantic vectors | `EMBEDDING_BACKEND=api` → NVIDIA NIM `nvidia/nemotron-3-embed-1b` (2048-d); `local_minilm` → offline `all-MiniLM-L6-v2` (384-d) | `[Domain] Cleaned_Text`, tag stored as `<model>:<dim>` |
 | `deduplication.py` | Filter by `(domain, district)` + cosine similarity clustering | NumPy dot product of L2-normalised vectors | `auto_link` (≥0.80), `flag_related` (0.60–0.79), `new_challenge` (<0.60) |
 | `priority_scoring.py` | Explainable 0–100 priority calculation | Weighted Severity (30%), Volume (25%), Conf (25%), Trend (20%) | `DOMAIN_SEVERITY`, `TREND_MULTIPLIERS` |
-| `summarization.py` | Canonical title & problem statement generation | `SUMMARIZATION_BACKEND=nvidia` → NIM `nvidia/nemotron-3.5-lightning-30b-a3b`; `groq` legacy; `extractive` offline | `{"title": str, "description": str, "model": str}` |
+| `summarization.py` | Canonical title & problem statement generation | `SUMMARIZATION_BACKEND=nvidia` → NIM `nvidia/nemotron-3.5-lightning-30b-a3b`; `groq` legacy; `extractive` offline. `allow_hosted=False` answers extractively without a network call | `{"title": str, "description": str, "model": str}` |
 | `router.py` | Department routing with municipality overrides | Rule-based mapping with city overrides | `CATEGORY_TO_DEPARTMENT`, `CITY_OVERRIDES` |
-| `orchestrator.py` | End-to-end multi-stage pipeline executor | SQLAlchemy DB persistence to `Challenge`, `ChallengeEvidence`, `ChallengeAnalysis`, `ChallengeRelation` | `process_evidence(data, db)` |
+| `orchestrator.py` | End-to-end multi-stage pipeline executor | SQLAlchemy DB persistence to `Challenge`, `ChallengeEvidence`, `ChallengeAnalysis`, `ChallengeRelation`. Summarization can be deferred: `process_evidence(..., defer_summary=...)` stores the extractive summary and `refresh_summary(job, db)` applies the hosted one later | `process_evidence(data, db, defer_summary=None)` → `dict`, `refresh_summary(job, db)` → `dict \| None` |
+| `api/challenges.py` | Citizen submission endpoint | `schedule_summary` queues hosted summaries on one lazily-started worker thread (`_summary_worker`) | `POST /api/challenges/` returns the extractive summary immediately |
 
 ---
 

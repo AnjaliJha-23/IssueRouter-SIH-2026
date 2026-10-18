@@ -27,7 +27,7 @@ from pipeline.priority_scoring import calculate_priority
 from pipeline.summarization import generate_summary
 from pipeline.router import route_department
 from pipeline.classification import classify
-from pipeline.orchestrator import process_evidence
+from pipeline.orchestrator import process_evidence, refresh_summary
 
 
 def cosine_similarity(a, b) -> float:
@@ -314,3 +314,114 @@ class TestOrchestratorIntegration:
                 (ChallengeRelation.target_challenge_id == res2["challenge_id"])
             ).all()
             assert len(relations) > 0
+
+
+# =====================================================================
+# 10. Deferred Summarization Tests
+# =====================================================================
+class TestDeferredSummarization:
+    """
+    A hosted summary costs ~5-15s, so the submission path answers with the
+    deterministic extractive summary and hands the hosted one to a background
+    task. These tests pin both halves of that contract.
+    """
+
+    @pytest.fixture
+    def test_db(self):
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=engine)
+        SessionLocal = sessionmaker(bind=engine)
+        session = SessionLocal()
+        yield session
+        session.close()
+
+    evidence = {
+        "source": "citizen",
+        "raw_text": "Severe drinking water crisis and contaminated wells in Namkum, Ranchi",
+        "submitted_lat": 23.34,
+        "submitted_lng": 85.42,
+    }
+
+    def test_deferred_submission_never_calls_the_hosted_model(self, test_db, monkeypatch):
+        calls = []
+
+        def explode(*args, **kwargs):
+            calls.append(args)
+            raise AssertionError("a deferred submission must not call the hosted model")
+
+        # Force the hosted backend on, so the only thing preventing a call is
+        # the deferral itself.
+        monkeypatch.setattr("pipeline.summarization.SUMMARIZATION_BACKEND", "nvidia")
+        monkeypatch.setattr("pipeline.summarization._call_nvidia", explode)
+
+        res = process_evidence(self.evidence, test_db, defer_summary=lambda job: None)
+
+        assert res["status"] == "success"
+        assert calls == []
+
+    def test_submission_answers_extractively_and_schedules_the_hosted_summary(self, test_db):
+        jobs = []
+
+        res = process_evidence(self.evidence, test_db, defer_summary=jobs.append)
+
+        challenge = test_db.query(Challenge).filter(Challenge.id == res["challenge_id"]).first()
+        analysis = test_db.query(ChallengeAnalysis).filter(ChallengeAnalysis.challenge_id == challenge.id).first()
+
+        # What the citizen gets back is already final and deterministic.
+        assert challenge.title == f"{challenge.domain} Issue in {challenge.location}"
+        assert "Severe drinking water crisis" in challenge.ai_generated_summary
+        assert analysis.model_versions["summarization"] == "extractive"
+
+        # Exactly one job was queued, carrying what the hosted call needs.
+        assert len(jobs) == 1
+        job = jobs[0]
+        assert job["challenge_id"] == challenge.id
+        assert job["domain"] == challenge.domain
+        assert "Namkum" in job["evidence_text"]
+
+    def test_background_refresh_replaces_the_extractive_summary(self, test_db, monkeypatch):
+        jobs = []
+        res = process_evidence(self.evidence, test_db, defer_summary=jobs.append)
+
+        monkeypatch.setattr(
+            "pipeline.orchestrator.generate_summary",
+            lambda *args, **kwargs: {
+                "title": "Contaminated Wells in Namkum",
+                "description": "Drinking water crisis; wells contaminated across Namkum.",
+                "model": "test/hosted-model",
+            },
+        )
+
+        applied = refresh_summary(jobs[0], test_db)
+
+        assert applied["model"] == "test/hosted-model"
+        challenge = test_db.query(Challenge).filter(Challenge.id == res["challenge_id"]).first()
+        assert challenge.title == "Contaminated Wells in Namkum"
+        assert challenge.ai_generated_summary == "Drinking water crisis; wells contaminated across Namkum."
+
+        analysis = test_db.query(ChallengeAnalysis).filter(ChallengeAnalysis.challenge_id == challenge.id).first()
+        assert analysis.model_versions["summarization"] == "test/hosted-model"
+        # The refresh must keep the other stages' attribution intact.
+        assert "classification" in analysis.model_versions
+        assert "embeddings" in analysis.model_versions
+
+    def test_background_refresh_keeps_extractive_when_the_model_is_unavailable(self, test_db, monkeypatch):
+        jobs = []
+        res = process_evidence(self.evidence, test_db, defer_summary=jobs.append)
+
+        # generate_summary returns the extractive fallback whenever the hosted
+        # call fails, so this is exactly what an outage looks like from here.
+        monkeypatch.setattr(
+            "pipeline.orchestrator.generate_summary",
+            lambda *args, **kwargs: {"title": "ignored", "description": "ignored", "model": "extractive"},
+        )
+
+        assert refresh_summary(jobs[0], test_db) is None
+
+        challenge = test_db.query(Challenge).filter(Challenge.id == res["challenge_id"]).first()
+        analysis = test_db.query(ChallengeAnalysis).filter(ChallengeAnalysis.challenge_id == challenge.id).first()
+        assert challenge.title == f"{challenge.domain} Issue in {challenge.location}"
+        assert analysis.model_versions["summarization"] == "extractive"
+
+    def test_background_refresh_ignores_a_missing_challenge(self, test_db):
+        assert refresh_summary({"challenge_id": "CHL-DOES-NOT-EXIST"}, test_db) is None
