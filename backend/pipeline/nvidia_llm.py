@@ -5,6 +5,22 @@ NIM exposes an OpenAI-compatible /chat/completions endpoint, so this is a plain
 httpx POST with a bounded retry. No SDK dependency is added.
 
 Endpoint: POST {NVIDIA_BASE_URL}/chat/completions
+
+Two gateway behaviours this client must handle explicitly:
+
+* ``stream`` defaults to **true** in the NIM schema. We always want one JSON
+  body, so ``stream=False`` is sent rather than trusted.
+* Reasoning models (the "Nemotron" family) think before answering. The trace is
+  returned in ``message.reasoning_content`` rather than ``message.content`` and
+  is produced first, so a small ``max_tokens`` is spent on reasoning and the
+  answer arrives empty. ``reasoning_budget`` is set to 0 to end the trace
+  immediately; see :func:`reasoning_budget`.
+
+``chat_template_kwargs.enable_thinking=false`` is the other obvious switch, and
+it appears in NVIDIA's own request examples -- but on this gateway it **hangs**
+when combined with ``stream=False``. The request never returns, and the caller
+sees only a read timeout (measured: >120s vs ~5s for the same call). Do not
+reintroduce it without testing both stream modes.
 """
 
 import os
@@ -53,6 +69,27 @@ def _max_retries() -> int:
         return 2
 
 
+def reasoning_budget() -> str:
+    """Value for the top-level ``reasoning_budget`` field, or ``"omit"``.
+
+    The reasoning trace is generated before the answer and counts against
+    ``max_tokens``, so with a small budget the reply arrives empty and carries
+    only ``message.reasoning_content``. ``reasoning_budget=0`` forces the trace
+    to end immediately, which is the documented way to turn thinking off.
+
+    This is deliberately the top-level field rather than
+    ``chat_template_kwargs.enable_thinking``: the latter hangs this gateway when
+    combined with ``stream=False`` (see the module docstring).
+
+    Return ``"omit"`` to drop the field entirely for models whose request
+    schema lacks it.
+    """
+    value = _env("NVIDIA_REASONING_BUDGET", "0").lower()
+    if value in ("omit", "unset", "none", ""):
+        return "omit"
+    return value
+
+
 def chat(
     messages: list[dict],
     model: str,
@@ -74,7 +111,16 @@ def chat(
         "messages": messages,
         "max_tokens": max_tokens,
         "temperature": temperature,
+        # The NIM schema defaults stream to true. Ask for a single JSON body
+        # explicitly instead of relying on the gateway to downgrade SSE.
+        "stream": False,
     }
+
+    budget = reasoning_budget()
+    if budget != "omit":
+        # Send a number when the value looks numeric, so the gateway sees the
+        # documented integer type rather than a string.
+        payload["reasoning_budget"] = int(budget) if budget.lstrip("-").isdigit() else budget
     headers = {
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
@@ -106,9 +152,23 @@ def chat(
             raise NvidiaLLMError(f"invalid JSON in response: {exc}") from exc
 
         choices = body.get("choices") or []
-        content = ((choices[0].get("message") or {}).get("content") if choices else None)
+        message = (choices[0].get("message") or {}) if choices else {}
+        content = message.get("content")
         if not content:
-            raise NvidiaLLMError("response contained no message content")
+            finish_reason = choices[0].get("finish_reason") if choices else None
+            reasoning = message.get("reasoning_content")
+            if reasoning:
+                # Distinguish this from a genuinely empty reply: the model
+                # thought instead of answering, so either the reasoning budget
+                # is still open or max_tokens ran out before the answer began.
+                raise NvidiaLLMError(
+                    "model returned only a reasoning trace "
+                    f"({len(reasoning)} chars, finish_reason={finish_reason!r}); "
+                    "thinking is still enabled - check NVIDIA_REASONING_BUDGET"
+                )
+            raise NvidiaLLMError(
+                f"response contained no message content (finish_reason={finish_reason!r})"
+            )
 
         return content
 
